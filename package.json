@@ -4,6 +4,9 @@
   "description": "A platform for evaluating code submissions",
   "main": "index.js",
   "scripts": {
+    "dev:frontend": "pnpm --filter frontend dev",
+    "dev:backend": "pnpm --filter backend dev",
+    "dev": "pnpm -r dev",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
