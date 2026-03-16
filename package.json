@@ -2,15 +2,25 @@
   "name": "code-evaluation-platform",
   "version": "1.0.0",
   "description": "A platform for evaluating code submissions",
-  "main": "index.js",
+  "author": "Gabriel Chávez",
+  "private": true,
   "scripts": {
     "dev:frontend": "pnpm --filter frontend dev",
     "dev:backend": "pnpm --filter backend dev",
     "dev": "pnpm -r dev",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "Gabriel Chávez",
-  "license": "ISC",
-  "packageManager": "pnpm@10.29.3"
+  "packageManager": "pnpm@10.29.3",
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@types/node": "^25.5.0",
+    "eslint": "^9.39.4",
+    "globals": "^17.4.0",
+    "jiti": "^2.6.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.57.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
 }
