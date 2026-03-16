@@ -28,8 +28,9 @@ export default defineConfig([
     files: ['**/*.{ts,tsx,mts,cts}'],
     languageOptions: {
       parserOptions: {
-        projectService: true,
         tsconfigRootDir,
+        allowDefaultProject: true,
+        project: ['./tsconfig.base.json'],
       },
     },
   },
