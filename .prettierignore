@@ -1,0 +1,11 @@
+# Ignore artifacts:
+node_modules
+pnpm-lock.yaml
+**/dist
+**/build
+**/.turbo
+**/.vite
+**/coverage
+**/.next
+**/.output
+**/generated
