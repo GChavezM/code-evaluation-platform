@@ -1,9 +1,18 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import js from '@eslint/js';
 import globals from 'globals';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 import { defineConfig, globalIgnores } from 'eslint/config';
+
+const tsconfigRootDir = path.dirname(fileURLToPath(import.meta.url));
+const tsconfigFiles = [
+  path.join(tsconfigRootDir, 'tsconfig.app.json'),
+  path.join(tsconfigRootDir, 'tsconfig.node.json'),
+];
 
 export default defineConfig([
   globalIgnores(['dist']),
@@ -18,6 +27,10 @@ export default defineConfig([
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
+      parserOptions: {
+        tsconfigRootDir,
+        project: tsconfigFiles,
+      },
     },
   },
 ]);
