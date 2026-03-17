@@ -30,7 +30,12 @@ export default defineConfig([
       parserOptions: {
         tsconfigRootDir,
         allowDefaultProject: true,
-        project: ['./tsconfig.base.json'],
+        project: [
+          './tsconfig.base.json',
+          './apps/frontend/tsconfig.app.json',
+          './apps/frontend/tsconfig.node.json',
+          './apps/backend/tsconfig.json',
+        ],
       },
     },
   },
