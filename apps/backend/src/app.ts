@@ -1,11 +1,11 @@
-import express from 'express';
+import express, { type Express } from 'express';
 import cors from 'cors';
 
-const app = express();
+const app: Express = express();
 
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: process.env['FRONTEND_URL'] || 'http://localhost:5173',
   })
 );
 
