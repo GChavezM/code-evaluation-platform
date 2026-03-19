@@ -1,41 +1,61 @@
-import * as path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import js from '@eslint/js';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
-import { defineConfig } from 'eslint/config';
+import { defineConfig, globalIgnores } from 'eslint/config';
 import eslintConfigPrettier from 'eslint-config-prettier';
+import reactHooks from 'eslint-plugin-react-hooks';
+import reactRefresh from 'eslint-plugin-react-refresh';
+import { Linter } from 'eslint';
 
-const tsconfigRootDir = path.dirname(fileURLToPath(import.meta.url));
+const jsTyped = js as unknown as {
+  configs: {
+    recommended: { rules: Readonly<Linter.RulesRecord> };
+    all: { rules: Readonly<Linter.RulesRecord> };
+  };
+};
+
+const globalsTyped = globals as unknown as {
+  browser: Record<string, boolean>;
+  node: Record<string, boolean>;
+};
+
+const reactHooksTyped = reactHooks as {
+  configs: {
+    flat: {
+      recommended: Linter.Config;
+    };
+  };
+};
+
+const reactRefreshTyped = reactRefresh as {
+  configs: {
+    vite: Linter.Config;
+  };
+};
+
+const tsconfigRootDir = import.meta.dirname;
 
 export default defineConfig([
-  {
-    ignores: [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/build/**',
-      '**/.turbo/**',
-      '**/.vite/**',
-      '**/coverage/**',
-    ],
-  },
+  globalIgnores([
+    '**/dist/**',
+    '**/build/**',
+    '**/node_modules/**',
+    '**/*.d.ts',
+    '**/coverage/**',
+    '.turbo/**',
+  ]),
 
-  js.configs.recommended,
-  ...tseslint.configs.recommended,
+  jsTyped.configs.recommended,
+  ...tseslint.configs.recommendedTypeChecked,
 
   {
-    files: ['**/*.{ts,tsx,mts,cts}'],
+    files: ['eslint.config.mts'],
     languageOptions: {
       parserOptions: {
+        projectService: {
+          allowDefaultProject: ['eslint.config.mts'],
+        },
         tsconfigRootDir,
-        allowDefaultProject: true,
-        project: [
-          './tsconfig.base.json',
-          './apps/frontend/tsconfig.app.json',
-          './apps/frontend/tsconfig.node.json',
-          './apps/backend/tsconfig.json',
-        ],
       },
     },
   },
@@ -45,9 +65,19 @@ export default defineConfig([
     files: ['apps/frontend/**/*.{ts,tsx,mts,cts}'],
     languageOptions: {
       globals: {
-        ...globals.browser,
+        ...globalsTyped.browser,
+      },
+
+      parserOptions: {
+        project: [
+          './apps/frontend/tsconfig.app.json',
+          './apps/frontend/tsconfig.json',
+          './apps/frontend/tsconfig.node.json',
+        ],
+        tsconfigRootDir,
       },
     },
+    extends: [reactHooksTyped.configs.flat.recommended, reactRefreshTyped.configs.vite],
   },
 
   // Backend (Node.js) configuration
@@ -55,7 +85,11 @@ export default defineConfig([
     files: ['apps/backend/**/*.{ts,tsx,mts,cts}'],
     languageOptions: {
       globals: {
-        ...globals.node,
+        ...globalsTyped.node,
+      },
+      parserOptions: {
+        project: ['./apps/backend/tsconfig.json'],
+        tsconfigRootDir,
       },
     },
   },
