@@ -2,18 +2,28 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
     "strict": true,
+    "useUnknownInCatchVariables": true,
+    "noImplicitOverride": true,
+
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
+    "noPropertyAccessFromIndexSignature": true,
 
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "verbatimModuleSyntax": true,
+    "resolveJsonModule": true,
+
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "allowSyntheticDefaultImports": true,
+    "isolatedModules": true,
 
-    "resolveJsonModule": true,
-    "verbatimModuleSyntax": true,
-
-    "baseUrl": "."
-  },
-  "include": ["eslint.config.mts"]
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
+  }
 }
