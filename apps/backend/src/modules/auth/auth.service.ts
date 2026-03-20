@@ -103,8 +103,12 @@ export class AuthService {
   async signOut(refreshToken: string): Promise<void> {
     const stored = await this.authRepo.findRefreshToken(refreshToken);
     if (stored) {
-      await this.authRepo.deleteRefreshToken(stored.id);
+      await this.authRepo.deleteAllUserRefreshTokens(stored.userId);
     }
+  }
+
+  async validateSession(userId: string): Promise<boolean> {
+    return await this.authRepo.hasActiveRefreshToken(userId);
   }
 
   private async issueTokens(user: User): Promise<AuthTokens> {

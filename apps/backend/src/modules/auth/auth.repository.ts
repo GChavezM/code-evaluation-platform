@@ -17,6 +17,7 @@ export interface IAuthRepository {
   findRefreshToken(token: string): Promise<RefreshToken | null>;
   deleteRefreshToken(id: string): Promise<void>;
   deleteAllUserRefreshTokens(userId: string): Promise<void>;
+  hasActiveRefreshToken(userId: string): Promise<boolean>;
 }
 
 export class AuthRepository implements IAuthRepository {
@@ -75,5 +76,17 @@ export class AuthRepository implements IAuthRepository {
     await this.db.refreshToken.deleteMany({
       where: { userId },
     });
+  }
+
+  async hasActiveRefreshToken(userId: string): Promise<boolean> {
+    const token = await this.db.refreshToken.findFirst({
+      where: {
+        userId,
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
+    });
+    return !!token;
   }
 }
