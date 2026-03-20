@@ -71,6 +71,9 @@ export default defineConfig([
       reactRefresh.configs.vite,
       tseslint.configs.recommendedTypeChecked,
     ],
+    rules: {
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+    },
   },
 
   // Backend (Node.js) configuration
