@@ -5,33 +5,6 @@ import { defineConfig, globalIgnores } from 'eslint/config';
 import eslintConfigPrettier from 'eslint-config-prettier';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
-import { Linter } from 'eslint';
-
-const jsTyped = js as unknown as {
-  configs: {
-    recommended: { rules: Readonly<Linter.RulesRecord> };
-    all: { rules: Readonly<Linter.RulesRecord> };
-  };
-};
-
-const globalsTyped = globals as unknown as {
-  browser: Record<string, boolean>;
-  node: Record<string, boolean>;
-};
-
-const reactHooksTyped = reactHooks as {
-  configs: {
-    flat: {
-      recommended: Linter.Config;
-    };
-  };
-};
-
-const reactRefreshTyped = reactRefresh as {
-  configs: {
-    vite: Linter.Config;
-  };
-};
 
 const tsconfigRootDir = import.meta.dirname;
 
@@ -43,10 +16,11 @@ export default defineConfig([
     '**/*.d.ts',
     '**/coverage/**',
     '.turbo/**',
+    '**/src/generated/**',
   ]),
 
-  jsTyped.configs.recommended,
-  ...tseslint.configs.recommendedTypeChecked,
+  js.configs.recommended,
+  tseslint.configs.recommended,
 
   {
     files: ['eslint.config.mts'],
@@ -60,12 +34,27 @@ export default defineConfig([
     },
   },
 
+  {
+    files: ['apps/backend/prisma.config.ts'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+      parserOptions: {
+        projectService: {
+          allowDefaultProject: ['apps/backend/prisma.config.ts', 'eslint.config.mts'],
+        },
+        tsconfigRootDir,
+      },
+    },
+  },
+
   // Frontend (React + Vite) configuration
   {
     files: ['apps/frontend/**/*.{ts,tsx,mts,cts}'],
     languageOptions: {
       globals: {
-        ...globalsTyped.browser,
+        ...globals.browser,
       },
 
       parserOptions: {
@@ -77,20 +66,28 @@ export default defineConfig([
         tsconfigRootDir,
       },
     },
-    extends: [reactHooksTyped.configs.flat.recommended, reactRefreshTyped.configs.vite],
+    extends: [
+      reactHooks.configs.flat.recommended,
+      reactRefresh.configs.vite,
+      tseslint.configs.recommendedTypeChecked,
+    ],
   },
 
   // Backend (Node.js) configuration
   {
-    files: ['apps/backend/**/*.{ts,tsx,mts,cts}'],
+    files: ['apps/backend/src/**/*.{ts,tsx,mts,cts}'],
     languageOptions: {
       globals: {
-        ...globalsTyped.node,
+        ...globals.node,
       },
       parserOptions: {
         project: ['./apps/backend/tsconfig.json'],
         tsconfigRootDir,
       },
+    },
+    extends: [tseslint.configs.recommendedTypeChecked],
+    rules: {
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
   eslintConfigPrettier,
