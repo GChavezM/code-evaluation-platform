@@ -146,7 +146,7 @@ src/modules/
 ├── auth/                          # Authentication & authorisation
 │   ├── auth.routes.ts
 │   ├── auth.controller.ts
-│   ├── auth.validation.ts
+│   ├── auth.schema.ts
 │   ├── auth.service.ts
 │   ├── auth.repository.ts
 │   └── index.ts                   # ← public API of this module
@@ -154,7 +154,7 @@ src/modules/
 ├── submission/                    # Code submission & evaluation
 │   ├── submission.routes.ts
 │   ├── submission.controller.ts
-│   ├── submission.validation.ts
+│   ├── submission.schema.ts
 │   ├── submission.service.ts
 │   ├── submission.repository.ts
 │   ├── strategies/
@@ -167,7 +167,7 @@ src/modules/
 └── user/                          # User profile management
     ├── user.routes.ts
     ├── user.controller.ts
-    ├── user.validation.ts
+    ├── user.schema.ts
     ├── user.service.ts
     ├── user.repository.ts
     └── index.ts
@@ -183,7 +183,7 @@ All layers are **co-located** — there are no global `controllers/`,
 {module}/
 ├── {module}.routes.ts       # Route definitions — no logic
 ├── {module}.controller.ts   # HTTP boundary — parse, validate, respond
-├── {module}.validation.ts   # Zod schemas + inferred DTO types
+├── {module}.schema.ts       # Zod schemas + inferred DTO types
 ├── {module}.service.ts      # Business logic — strategies + Result
 ├── {module}.repository.ts   # Data access — Prisma only
 └── index.ts                 # Public API — only export what other modules need
@@ -195,7 +195,7 @@ All layers are **co-located** — there are no global `controllers/`,
 | -------------------- | ---------- |
 | `auth.routes.ts`     | Route      |
 | `auth.controller.ts` | Controller |
-| `auth.validation.ts` | Validation |
+| `auth.schema.ts`     | Validation |
 | `auth.service.ts`    | Service    |
 | `auth.repository.ts` | Repository |
 
@@ -205,15 +205,15 @@ All layers are **co-located** — there are no global `controllers/`,
 
 ### 4.3 Layer Responsibilities
 
-| Layer            | File                       | Responsibility                                                                                                                  |
-| ---------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| **Route**        | `{module}.routes.ts`       | Register URL path + HTTP verb. Attach controller methods. Zero logic.                                                           |
-| **Controller**   | `{module}.controller.ts`   | Invoke the validation layer to parse the request. Delegate to the service. Map the `Result` to an HTTP response.                |
-| **Validation**   | `{module}.validation.ts`   | Declare all Zod schemas for this module. Export inferred DTO types. Single source of truth for all input shapes in this module. |
-| **Service**      | `{module}.service.ts`      | Orchestrate business rules. Select and invoke strategies. Coordinate repositories. Return a typed `Result<T, E>`.               |
-| **Repository**   | `{module}.repository.ts`   | All and only Prisma interactions for this module's aggregate. Exposes a typed `I{Module}Repository` interface.                  |
-| **Strategy**     | `strategies/*.strategy.ts` | One pluggable algorithm implementation per variant. Implements a shared interface defined in the same `strategies/` folder.     |
-| **Module index** | `index.ts`                 | Re-exports the public surface of the module (router, service interface, public types). Hides all internal layers.               |
+| Layer            | File                       | Responsibility                                                                                                                                                       |
+| ---------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Route**        | `{module}.routes.ts`       | Register URL path + HTTP verb. Attach controller methods. Zero logic.                                                                                                |
+| **Controller**   | `{module}.controller.ts`   | Invoke the validation layer to parse the request. Delegate to the service. Map the `Result` to an HTTP response.                                                     |
+| **Validation**   | `{module}.schema.ts`       | Declare all Zod schemas for this module. Export inferred DTO types. Naming: lower camelCase identifiers. Single source of truth for all input shapes in this module. |
+| **Service**      | `{module}.service.ts`      | Orchestrate business rules. Select and invoke strategies. Coordinate repositories. Return a typed `Result<T, E>`.                                                    |
+| **Repository**   | `{module}.repository.ts`   | All and only Prisma interactions for this module's aggregate. Exposes a typed `I{Module}Repository` interface.                                                       |
+| **Strategy**     | `strategies/*.strategy.ts` | One pluggable algorithm implementation per variant. Implements a shared interface defined in the same `strategies/` folder.                                          |
+| **Module index** | `index.ts`                 | Re-exports the public surface of the module (router, service interface, public types). Hides all internal layers.                                                    |
 
 ### 4.4 Layer Communication Rules
 
@@ -547,22 +547,22 @@ Strategy pattern, and Result pattern interact inside a single module.
 **Validation layer** — single source of truth for all input shapes:
 
 ```typescript
-// src/modules/submission/submission.validation.ts
+// src/modules/submission/submission.schema.ts
 
 import { z } from 'zod';
 
-export const CreateSubmissionSchema = z.object({
+export const createSubmissionSchema = z.object({
   code: z.string().min(1).max(10_000),
   language: z.enum(['python']),
 });
 
-export const GetSubmissionSchema = z.object({
+export const getSubmissionSchema = z.object({
   id: z.string().uuid(),
 });
 
 // Inferred DTO types — consumed by controller, service, and repository
-export type CreateSubmissionDto = z.infer<typeof CreateSubmissionSchema>;
-export type GetSubmissionDto = z.infer<typeof GetSubmissionSchema>;
+export type CreateSubmissionDto = z.infer<typeof createSubmissionSchema>;
+export type GetSubmissionDto = z.infer<typeof getSubmissionSchema>;
 ```
 
 **Controller** — parses via the Validation layer, delegates to the Service,
@@ -572,7 +572,7 @@ maps the Result to an HTTP response:
 // src/modules/submission/submission.controller.ts
 
 import type { Request, Response } from 'express';
-import { CreateSubmissionSchema } from './submission.validation.js';
+import { createSubmissionSchema } from './submission.validation.js';
 import type { SubmissionService } from './submission.service.js';
 import { isErr } from '../../lib/result.js';
 import { UnsupportedLanguageError } from '../../lib/errors.js';
@@ -582,7 +582,7 @@ export class SubmissionController {
 
   async create(req: Request, res: Response): Promise<void> {
     // 1. Validation layer parses and types the raw request body
-    const parsed = CreateSubmissionSchema.safeParse(req.body);
+    const parsed = createSubmissionSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: parsed.error.flatten() });
       return;
@@ -618,8 +618,8 @@ POST /submissions
 submission.routes.ts       → mounts SubmissionController.create
   │
   ▼
-submission.controller.ts   → submission.validation.ts        [Zod.safeParse]
-  │                           CreateSubmissionSchema
+submission.controller.ts   → submission.schema.ts        [Zod.safeParse]
+  │                           createSubmissionSchema
   ▼
 submission.service.ts      → strategyRegistry.get(language)  [selects strategy]
   │                         → submission.repository.ts       [persists record]
@@ -678,7 +678,7 @@ User submits code
  [Backend — Sync path]
  submission.routes.ts
       → submission.controller.ts
-           → submission.validation.ts   (Zod parse — typed DTO)
+           → submission.schema.ts   (Zod parse — typed DTO)
            → submission.service.ts
                 → strategyRegistry.get('python')
                 → submission.repository.ts  → PostgreSQL
@@ -737,17 +737,17 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 
 ## 9. Tech Stack Reference
 
-| Concern            | Technology              | Rationale                                                                  |
-| ------------------ | ----------------------- | -------------------------------------------------------------------------- |
-| Frontend framework | React 19 + Vite 8       | Component model + fast HMR                                                 |
-| Styling            | TailwindCSS             | Utility-first, no CSS drift                                                |
-| Backend framework  | Express 5               | Minimal, well-understood                                                   |
-| Language           | TypeScript 5.9 (strict) | Type safety across all layers                                              |
-| ORM                | Prisma                  | Type-safe DB access, declarative migrations                                |
-| Validation         | Zod 4                   | Schema-first, inferred DTOs — co-located in each module's `.validation.ts` |
-| Primary database   | PostgreSQL              | ACID compliance, relational model                                          |
-| Job queue / cache  | Redis + BullMQ          | Reliable async job processing                                              |
-| Real-time          | Socket.IO               | Bidirectional events for submission status                                 |
-| Sandbox            | Docker                  | OS-level isolation with resource limits                                    |
-| Package manager    | pnpm + workspaces       | Fast installs, strict dependency isolation                                 |
-| Testing            | Jest + Playwright       | Unit/integration + E2E coverage                                            |
+| Concern            | Technology              | Rationale                                                              |
+| ------------------ | ----------------------- | ---------------------------------------------------------------------- |
+| Frontend framework | React 19 + Vite 8       | Component model + fast HMR                                             |
+| Styling            | TailwindCSS             | Utility-first, no CSS drift                                            |
+| Backend framework  | Express 5               | Minimal, well-understood                                               |
+| Language           | TypeScript 5.9 (strict) | Type safety across all layers                                          |
+| ORM                | Prisma                  | Type-safe DB access, declarative migrations                            |
+| Validation         | Zod 4                   | Schema-first, inferred DTOs — co-located in each module's `.schema.ts` |
+| Primary database   | PostgreSQL              | ACID compliance, relational model                                      |
+| Job queue / cache  | Redis + BullMQ          | Reliable async job processing                                          |
+| Real-time          | Socket.IO               | Bidirectional events for submission status                             |
+| Sandbox            | Docker                  | OS-level isolation with resource limits                                |
+| Package manager    | pnpm + workspaces       | Fast installs, strict dependency isolation                             |
+| Testing            | Jest + Playwright       | Unit/integration + E2E coverage                                        |
