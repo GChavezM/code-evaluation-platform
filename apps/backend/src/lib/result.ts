@@ -51,6 +51,8 @@ export class Result<T, E = Error> {
     return this._success ? this._value : undefined;
   }
 
+  getError(this: Result<never, E>): E;
+  getError(): E | undefined;
   getError(): E | undefined {
     return !this._success ? this._error : undefined;
   }
