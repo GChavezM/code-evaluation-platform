@@ -18,10 +18,5 @@ export const signInSchema = z.object({
   password: z.string().trim().min(1),
 });
 
-export const refreshTokenSchema = z.object({
-  refreshToken: z.string().trim().min(1),
-});
-
 export type SignUpDto = z.infer<typeof signUpSchema>;
 export type SignInDto = z.infer<typeof signInSchema>;
-export type RefreshTokenDto = z.infer<typeof refreshTokenSchema>;
