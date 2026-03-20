@@ -14,6 +14,7 @@ export class AuthController {
     httpOnly: true,
     secure: config.nodeEnv === 'production',
     sameSite: 'strict' as const,
+    path: '/api/auth',
   };
 
   constructor(authService: AuthService) {
@@ -32,11 +33,17 @@ export class AuthController {
       const resultError = result.getError();
       res
         .status(resultError instanceof ConflictError ? 409 : 500)
-        .json({ error: resultError?.message || 'An error occurred' });
+        .json({ error: resultError.message || 'An error occurred' });
       return;
     }
 
-    res.status(201).json({ data: result.getValue() });
+    const { user, tokens } = result.unwrap();
+    res.cookie(AuthController.COOKIE_NAME, tokens.refreshToken, {
+      ...AuthController.COOKIE_OPTIONS,
+      maxAge: config.jwtRefreshExpiresIn * 1000,
+    });
+
+    res.status(201).json({ data: { user, accessToken: tokens.accessToken } });
   }
 
   async signIn(req: Request, res: Response): Promise<void> {
@@ -51,7 +58,7 @@ export class AuthController {
       const resultError = result.getError();
       res
         .status(resultError instanceof InvalidCredentialsError ? 401 : 500)
-        .json({ error: resultError?.message || 'An error occurred' });
+        .json({ error: resultError.message || 'An error occurred' });
       return;
     }
 
@@ -76,7 +83,7 @@ export class AuthController {
       const resultError = result.getError();
       res
         .status(resultError instanceof UnauthorizedError ? 401 : 500)
-        .json({ error: resultError?.message || 'An error occurred' });
+        .json({ error: resultError.message || 'An error occurred' });
       return;
     }
 

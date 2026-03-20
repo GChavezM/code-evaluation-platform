@@ -12,5 +12,5 @@ const authController = new AuthController(authService);
 export const authRouter: Router = createAuthRouter(authController);
 
 export type { AuthTokens, AuthUser } from './auth.service.js';
-export type { SignUpDto, SignInDto, RefreshTokenDto } from './auth.schema.js';
-export { authenticate } from './auth.middleware.js';
+export type { SignUpDto, SignInDto } from './auth.schema.js';
+export { authenticate, isAuthenticated } from './auth.middleware.js';

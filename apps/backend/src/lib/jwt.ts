@@ -25,7 +25,7 @@ export const signRefreshToken = (payload: RefreshTokenPayload): string => {
 
 export const verifyAccessToken = (token: string): AccessTokenPayload => {
   const payload = jwt.verify(token, config.jwtAccessSecret);
-  if (typeof payload === 'string') {
+  if (typeof payload === 'string' || !payload.sub || !payload['email']) {
     throw new Error('Malformed token payload');
   }
   return payload as AccessTokenPayload;
@@ -33,7 +33,7 @@ export const verifyAccessToken = (token: string): AccessTokenPayload => {
 
 export const verifyRefreshToken = (token: string): RefreshTokenPayload => {
   const payload = jwt.verify(token, config.jwtRefreshSecret);
-  if (typeof payload === 'string') {
+  if (typeof payload === 'string' || !payload.sub || !payload.jti) {
     throw new Error('Malformed token payload');
   }
   return payload as RefreshTokenPayload;
