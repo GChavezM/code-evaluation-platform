@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router';
+import { createBrowserRouter, Navigate } from 'react-router';
 import type { RouteObject } from 'react-router';
 import { LoginPage, RegisterPage } from '@/features/auth';
 import { DashboardPage } from '@/features/dashboard';
@@ -10,6 +10,10 @@ import { protectedLoader } from './loaders/protectedLoader';
 const hydrateFallbackElement = <div>Loading...</div>;
 
 const routes: RouteObject[] = [
+  {
+    path: '/',
+    element: <Navigate to="/dashboard" replace />,
+  },
   {
     Component: AuthLayout,
     loader: publicLoader,
