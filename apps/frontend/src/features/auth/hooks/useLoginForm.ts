@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { isAxiosError } from 'axios';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { z } from 'zod';
 
 const loginSchema = z.object({
@@ -16,6 +16,7 @@ export type LoginFormData = z.infer<typeof loginSchema>;
 
 export function useLoginForm() {
   const navigate = useNavigate();
+  const [seachParams] = useSearchParams();
   const [serverError, setServerError] = useState<string | null>(null);
 
   const form = useForm<LoginFormData>({
@@ -27,12 +28,12 @@ export function useLoginForm() {
   });
 
   const onSubmit = async (data: LoginFormData) => {
-    console.log('Submitting login form from hook with data:', data);
     setServerError(null);
     try {
       const response = await signIn(data);
       setAccessToken(response.data.accessToken);
-      void navigate('/dashboard');
+      const from = seachParams.get('redirectTo') ?? '/dashboard';
+      void navigate(from, { replace: true });
     } catch (error) {
       if (isAxiosError(error)) {
         const status = error.response?.status;
