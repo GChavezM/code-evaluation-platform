@@ -33,7 +33,7 @@ export const signIn = async (
   payload: SignInPayload
 ): Promise<AuthResponse<{ user: AuthUser; accessToken: string }>> => {
   const response = await api.post<AuthResponse<{ user: AuthUser; accessToken: string }>>(
-    '/auth/sign-in',
+    '/api/auth/signin',
     payload
   );
   return response.data;
@@ -43,17 +43,17 @@ export const signUp = async (
   payload: SignUpPayload
 ): Promise<AuthResponse<{ user: AuthUser; accessToken: string }>> => {
   const response = await api.post<AuthResponse<{ user: AuthUser; accessToken: string }>>(
-    '/auth/sign-up',
+    '/api/auth/signup',
     payload
   );
   return response.data;
 };
 
 export const signOut = async (): Promise<void> => {
-  await api.post('/auth/sign-out', null, { withCredentials: true });
+  await api.post('/api/auth/signout', {}, { withCredentials: true });
 };
 
 export const refreshToken = async (): Promise<AuthResponse<{ accessToken: string }>> => {
-  const response = await api.post<AuthResponse<{ accessToken: string }>>('/auth/refresh-token');
+  const response = await api.post<AuthResponse<{ accessToken: string }>>('/api/auth/refresh-token');
   return response.data;
 };
