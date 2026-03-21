@@ -1,3 +1,16 @@
+export class AppError extends Error {
+  public readonly statusCode: number;
+  public readonly code: string;
+
+  constructor(message: string, statusCode: number, code: string) {
+    super(message);
+    this.statusCode = statusCode;
+    this.code = code;
+    this.name = this.constructor.name;
+    Object.setPrototypeOf(this, AppError.prototype);
+  }
+}
+
 export class NotFoundError extends Error {
   readonly code = 'NOT_FOUND';
   constructor(resource: string, id: string) {

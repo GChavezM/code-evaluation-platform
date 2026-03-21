@@ -3,6 +3,7 @@ import cors, { type CorsOptions } from 'cors';
 import cookieParser from 'cookie-parser';
 import config from './config/config.js';
 import { authRouter } from './modules/auth/index.js';
+import { errorHandler } from './middleware/error.js';
 
 const allowedOrigins: string[] = [config.frontendUrl];
 
@@ -42,6 +43,8 @@ export const createApp = (): Express => {
   });
 
   app.use('/api/auth', authRouter);
+
+  app.use(errorHandler);
 
   return app;
 };
