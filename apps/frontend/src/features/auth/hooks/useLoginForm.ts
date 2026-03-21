@@ -16,7 +16,7 @@ export type LoginFormData = z.infer<typeof loginSchema>;
 
 export function useLoginForm() {
   const navigate = useNavigate();
-  const [seachParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const [serverError, setServerError] = useState<string | null>(null);
 
   const form = useForm<LoginFormData>({
@@ -32,12 +32,13 @@ export function useLoginForm() {
     try {
       const response = await signIn(data);
       setAccessToken(response.data.accessToken);
-      const from = seachParams.get('redirectTo') ?? '/dashboard';
+      const from = searchParams.get('redirectTo') ?? '/dashboard';
       void navigate(from, { replace: true });
     } catch (error) {
       if (isAxiosError(error)) {
         const status = error.response?.status;
-        const message = (error.response?.data as { error: string } | undefined)?.error;
+        const rawError = (error.response?.data as { error?: unknown } | undefined)?.error;
+        const message = typeof rawError === 'string' ? rawError : undefined;
         if (status === 401) {
           setServerError(message ?? 'Invalid email or password. Please try again.');
         } else if (status === 400) {
