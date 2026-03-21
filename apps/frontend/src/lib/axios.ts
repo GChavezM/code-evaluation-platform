@@ -1,7 +1,21 @@
 import axios, { AxiosError, type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios';
-import { getAccessToken, setAccessToken } from './tokenStore';
+import { clearAccessToken, getAccessToken, setAccessToken } from './tokenStore';
 
 const API_BASE_URL = String(import.meta.env['VITE_API_URL'] ?? '/api');
+const REFRESH_ENDPOINT = '/auth/refresh-token';
+
+export const AUTH_LOGOUT_EVENT = 'auth:logout' as const;
+
+type RefreshTokenApiResponse = {
+  data: {
+    accessToken: string;
+  };
+};
+
+type PendingRequest = {
+  resolve: (token: string) => void;
+  reject: (error: Error) => void;
+};
 
 function toError(error: unknown): Error {
   return error instanceof Error ? error : new Error('Unknown request error');
@@ -24,22 +38,16 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 });
 
 let isRefreshing = false;
-let failedQueue: Array<{
-  resolve: (token: string) => void;
-  reject: (error: unknown) => void;
-}> = [];
+let pendingQueue: PendingRequest[] = [];
 
-function processQueue(error: unknown, token: string | null) {
-  failedQueue.forEach(({ resolve, reject }) => {
-    if (error) {
-      reject(toError(error));
-    } else if (token) {
-      resolve(token);
-    } else {
-      reject(new Error('Token refresh did not return an access token'));
-    }
-  });
-  failedQueue = [];
+function resolveQueue(newToken: string): void {
+  pendingQueue.forEach(({ resolve }) => resolve(newToken));
+  pendingQueue = [];
+}
+
+function rejectQueue(error: Error): void {
+  pendingQueue.forEach(({ reject }) => reject(error));
+  pendingQueue = [];
 }
 
 api.interceptors.response.use(
@@ -50,10 +58,9 @@ api.interceptors.response.use(
     }
 
     const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
-    const requestUrl = originalRequest.url ?? '';
-    const isRefreshCall = requestUrl.includes('/auth/refresh');
 
     const is401 = error.response?.status === 401;
+    const isRefreshCall = originalRequest.url?.includes(REFRESH_ENDPOINT);
     const alreadyRetried = originalRequest._retry === true;
 
     if (!is401 || alreadyRetried || isRefreshCall) {
@@ -62,43 +69,44 @@ api.interceptors.response.use(
 
     if (isRefreshing) {
       return new Promise<string>((resolve, reject) => {
-        failedQueue.push({ resolve, reject });
-      })
-        .then((token) => {
-          originalRequest.headers = {
-            ...originalRequest.headers,
-            Authorization: `Bearer ${token}`,
-          };
-          return api(originalRequest);
-        })
-        .catch(Promise.reject.bind(Promise));
+        pendingQueue.push({ resolve, reject });
+      }).then((newToken) => {
+        originalRequest.headers = {
+          ...originalRequest.headers,
+          Authorization: `Bearer ${newToken}`,
+        };
+        return api(originalRequest);
+      });
     }
 
     originalRequest._retry = true;
     isRefreshing = true;
 
     try {
-      const { data } = await axios.post<{ accessToken: string }>(
-        `${API_BASE_URL}/auth/refresh`,
+      const { data } = await axios.post<RefreshTokenApiResponse>(
+        `${API_BASE_URL}${REFRESH_ENDPOINT}`,
         null,
-        { withCredentials: true }
+        {
+          withCredentials: true,
+        }
       );
 
-      const newToken = data.accessToken;
+      const newToken = data.data.accessToken;
       setAccessToken(newToken);
-
-      processQueue(null, newToken);
+      resolveQueue(newToken);
 
       originalRequest.headers = {
         ...originalRequest.headers,
         Authorization: `Bearer ${newToken}`,
       };
+
       return api(originalRequest);
     } catch (refreshError) {
-      processQueue(refreshError, null);
-      setAccessToken(null);
-      window.location.href = '/login';
-      return Promise.reject(toError(refreshError));
+      const error = toError(refreshError);
+      rejectQueue(error);
+      clearAccessToken();
+      window.dispatchEvent(new CustomEvent(AUTH_LOGOUT_EVENT));
+      return Promise.reject(error);
     } finally {
       isRefreshing = false;
     }
