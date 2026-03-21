@@ -4,10 +4,16 @@ import { LoginPage, RegisterPage } from '@/features/auth';
 import { DashboardPage } from '@/features/dashboard';
 import { AuthLayout } from './layouts/AuthLayout';
 import { AppLayout } from './layouts/AppLayout';
+import { publicLoader } from './loaders/publicLoader';
+import { protectedLoader } from './loaders/protectedLoader';
+
+const hydrateFallbackElement = <div>Loading...</div>;
 
 const routes: RouteObject[] = [
   {
     Component: AuthLayout,
+    loader: publicLoader,
+    hydrateFallbackElement,
     children: [
       { path: '/login', Component: LoginPage },
       { path: '/register', Component: RegisterPage },
@@ -15,6 +21,8 @@ const routes: RouteObject[] = [
   },
   {
     Component: AppLayout,
+    loader: protectedLoader,
+    hydrateFallbackElement,
     children: [{ path: '/dashboard', Component: DashboardPage }],
   },
 ];
