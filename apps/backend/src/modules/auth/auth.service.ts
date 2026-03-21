@@ -6,6 +6,7 @@ import { Result } from '../../lib/result.js';
 import { ConflictError, InvalidCredentialsError, UnauthorizedError } from '../../lib/errors.js';
 import type { User } from '../../generated/prisma/client.js';
 import { randomUUID } from 'crypto';
+import config from '../../config/config.js';
 
 export interface AuthTokens {
   accessToken: string;
@@ -112,7 +113,7 @@ export class AuthService {
   }
 
   private async issueTokens(user: User): Promise<AuthTokens> {
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    const expiresAt = new Date(Date.now() + config.jwtRefreshExpiresIn * 1000); // 7 days
 
     const accessToken = signAccessToken({ sub: user.id, email: user.email });
     const refreshToken = signRefreshToken({ sub: user.id, jti: randomUUID() });
