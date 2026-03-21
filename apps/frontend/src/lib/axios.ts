@@ -2,7 +2,13 @@ import axios, { AxiosError, type AxiosRequestConfig, type InternalAxiosRequestCo
 import { clearAccessToken, getAccessToken, setAccessToken } from './tokenStore';
 
 const API_BASE_URL = String(import.meta.env['VITE_API_URL'] ?? '/api');
-const REFRESH_ENDPOINT = '/auth/refresh-token';
+const REFRESH_ENDPOINT = '/api/auth/refresh-token';
+const NO_REFRESH_ENDPOINTS = new Set([
+  '/api/auth/signin',
+  '/api/auth/signup',
+  '/api/auth/signout',
+  REFRESH_ENDPOINT,
+]);
 
 export const AUTH_LOGOUT_EVENT = 'auth:logout' as const;
 
@@ -19,6 +25,23 @@ type PendingRequest = {
 
 function toError(error: unknown): Error {
   return error instanceof Error ? error : new Error('Unknown request error');
+}
+
+function normalizeRequestPath(url: string | undefined): string | null {
+  if (!url) {
+    return null;
+  }
+
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return new URL(url).pathname;
+  }
+
+  return url.startsWith('/') ? url : `/${url}`;
+}
+
+function shouldSkipRefresh(url: string | undefined): boolean {
+  const path = normalizeRequestPath(url);
+  return path !== null && NO_REFRESH_ENDPOINTS.has(path);
 }
 
 const api = axios.create({
@@ -60,10 +83,10 @@ api.interceptors.response.use(
     const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
 
     const is401 = error.response?.status === 401;
-    const isRefreshCall = originalRequest.url?.includes(REFRESH_ENDPOINT);
+    const shouldBypassRefresh = shouldSkipRefresh(originalRequest.url);
     const alreadyRetried = originalRequest._retry === true;
 
-    if (!is401 || alreadyRetried || isRefreshCall) {
+    if (!is401 || alreadyRetried || shouldBypassRefresh) {
       return Promise.reject(toError(error));
     }
 
