@@ -7,8 +7,8 @@ export type ProblemWithTestCases = Prisma.ProblemGetPayload<{
 export interface IProblemRepository {
   findAll(onlyPublished?: boolean): Promise<Problem[]>;
   findById(id: string): Promise<ProblemWithTestCases | null>;
-  create(problemData: Prisma.ProblemUncheckedCreateInput): Promise<Problem>;
-  update(id: string, problemData: Prisma.ProblemUncheckedUpdateInput): Promise<Problem>;
+  create(data: Prisma.ProblemUncheckedCreateInput): Promise<Problem>;
+  update(id: string, data: Prisma.ProblemUncheckedUpdateInput): Promise<Problem>;
   delete(id: string): Promise<void>;
   existsById(id: string): Promise<boolean>;
 }
@@ -21,12 +21,10 @@ export class ProblemRepository implements IProblemRepository {
   }
 
   async findAll(onlyPublished?: boolean): Promise<Problem[]> {
-    const where: Prisma.ProblemWhereInput | undefined = onlyPublished
-      ? { isPublished: true }
-      : undefined;
-
     return this.db.problem.findMany({
-      ...(where ? { where } : {}),
+      where: {
+        ...(onlyPublished ? { isPublished: true } : {}),
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -38,14 +36,14 @@ export class ProblemRepository implements IProblemRepository {
     });
   }
 
-  async create(problemData: Prisma.ProblemUncheckedCreateInput): Promise<Problem> {
-    return this.db.problem.create({ data: problemData });
+  async create(data: Prisma.ProblemUncheckedCreateInput): Promise<Problem> {
+    return this.db.problem.create({ data });
   }
 
-  async update(id: string, problemData: Prisma.ProblemUncheckedUpdateInput): Promise<Problem> {
+  async update(id: string, data: Prisma.ProblemUncheckedUpdateInput): Promise<Problem> {
     return this.db.problem.update({
       where: { id },
-      data: problemData,
+      data,
     });
   }
 
