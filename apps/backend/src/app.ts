@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import config from './config/config.js';
 import { authRouter } from './modules/auth/index.js';
 import { errorHandler } from './middleware/error.js';
+import { prisma } from './lib/prisma.js';
 
 const allowedOrigins: string[] = [config.frontendUrl];
 
@@ -38,8 +39,13 @@ export const createApp = (): Express => {
 
   app.use(cookieParser());
 
-  app.get('/health', (_req, res) => {
-    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  app.get('/health', async (_req, res) => {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+    } catch {
+      res.status(503).json({ status: 'error', timestamp: new Date().toISOString() });
+    }
   });
 
   app.use('/api/auth', authRouter);
