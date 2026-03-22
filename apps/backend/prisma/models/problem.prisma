@@ -20,15 +20,3 @@ model Problem {
 
     @@map("problems")
 }
-
-model TestCase {
-    id             String  @id @default(uuid())
-    input          String  @db.Text
-    expectedOutput String  @db.Text
-    order          Int
-    isSample       Boolean @default(false)
-    problemId      String
-    problem        Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
-
-    @@map("test_cases")
-}
