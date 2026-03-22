@@ -9,6 +9,9 @@ import {
 } from './problem.schema.js';
 import { z } from 'zod';
 import { NotFoundError } from '../../lib/errors.js';
+import { UserRole } from '../../generated/prisma/enums.js';
+
+const { CODER } = UserRole;
 
 export class ProblemController {
   private readonly problemService: ProblemService;
@@ -18,7 +21,13 @@ export class ProblemController {
   }
 
   async getAll(req: Request, res: Response): Promise<void> {
-    const onlyPublished = !isAuthenticated(req);
+    if (!isAuthenticated(req)) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
+    const onlyPublished = req.user.role === CODER;
+
     const result = await this.problemService.getAll(onlyPublished);
     res.status(200).json({ data: result.unwrap() });
   }
@@ -46,7 +55,14 @@ export class ProblemController {
       return;
     }
 
-    res.status(200).json({ data: result.unwrap() });
+    const problem = result.unwrap();
+
+    if (req.user.role === CODER && !problem.isPublished) {
+      res.status(403).json({ error: 'Problem not found' });
+      return;
+    }
+
+    res.status(200).json({ data: problem });
   }
 
   async create(req: Request, res: Response): Promise<void> {
