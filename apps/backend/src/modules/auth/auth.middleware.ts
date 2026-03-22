@@ -1,11 +1,12 @@
 import type { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken } from '../../lib/jwt.js';
-import type { AuthService } from './auth.service.js';
+import type { UserRole } from '../../generated/prisma/enums.js';
 
 export interface AuthenticatedRequest extends Request {
   user: {
     id: string;
     email: string;
+    role: UserRole;
   };
 }
 
@@ -37,10 +38,28 @@ export const createAuthenticateMiddleware = (authService: AuthService) => {
       (req as AuthenticatedRequest).user = {
         id: payload.sub,
         email: payload.email,
+        role: payload.role,
       };
+
       next();
     } catch {
       res.status(401).json({ error: 'Unauthorized' });
     }
+  };
+};
+
+export const requireRole = (...allowedRoles: UserRole[]) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!isAuthenticated(req)) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
+    if (!allowedRoles.includes(req.user.role)) {
+      res.status(403).json({ error: 'Insufficient permissions' });
+      return;
+    }
+
+    next();
   };
 };

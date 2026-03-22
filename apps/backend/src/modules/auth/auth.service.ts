@@ -115,7 +115,7 @@ export class AuthService {
   private async issueTokens(user: User): Promise<AuthTokens> {
     const expiresAt = new Date(Date.now() + config.jwtRefreshExpiresIn * 1000); // 7 days
 
-    const accessToken = signAccessToken({ sub: user.id, email: user.email });
+    const accessToken = signAccessToken({ sub: user.id, email: user.email, role: user.role });
     const refreshToken = signRefreshToken({ sub: user.id, jti: randomUUID() });
 
     await this.authRepo.createRefreshToken({ token: refreshToken, userId: user.id, expiresAt });

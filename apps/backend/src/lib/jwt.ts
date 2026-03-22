@@ -1,9 +1,11 @@
 import jwt from 'jsonwebtoken';
 import config from '../config/config.js';
+import type { UserRole } from '../generated/prisma/enums.js';
 
 export interface AccessTokenPayload {
   sub: string;
   email: string;
+  role: UserRole;
 }
 
 export interface RefreshTokenPayload {
@@ -25,7 +27,7 @@ export const signRefreshToken = (payload: RefreshTokenPayload): string => {
 
 export const verifyAccessToken = (token: string): AccessTokenPayload => {
   const payload = jwt.verify(token, config.jwtAccessSecret);
-  if (typeof payload === 'string' || !payload.sub || !payload['email']) {
+  if (typeof payload === 'string' || !payload.sub || !payload['email'] || !payload['role']) {
     throw new Error('Malformed token payload');
   }
   return payload as AccessTokenPayload;
