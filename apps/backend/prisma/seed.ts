@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Difficulty, PrismaClient, Problem } from '../src/generated/prisma/client';
+import { Difficulty, PrismaClient, Problem, UserRole } from '../src/generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import bcrypt from 'bcryptjs';
 
@@ -16,6 +16,7 @@ type SeedUser = {
   lastName: string;
   email: string;
   password: string;
+  role: UserRole;
 };
 
 type SeedProblem = {
@@ -40,12 +41,14 @@ const users: SeedUser[] = [
     lastName: 'Admin',
     email: 'super.admin@example.com',
     password: 'password123',
+    role: UserRole.ADMIN,
   },
   {
     name: 'Alan',
     lastName: 'Turing',
     email: 'alan.turing@example.com',
     password: 'password123',
+    role: UserRole.EVALUATOR,
   },
 ];
 
@@ -126,6 +129,7 @@ export async function main() {
         lastName: user.lastName,
         email: user.email,
         password: hashedPassword,
+        role: user.role,
       },
       update: {},
     });
