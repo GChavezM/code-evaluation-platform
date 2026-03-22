@@ -42,8 +42,8 @@ export class AuthService {
     const { email, name, lastName } = dto;
     const user = await this.authRepo.createUser({
       email,
-      name,
-      lastName,
+      name: name ?? null,
+      lastName: lastName ?? null,
       password: hashedPassword,
     });
     const tokens = await this.issueTokens(user);
