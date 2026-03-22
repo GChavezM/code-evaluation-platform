@@ -5,18 +5,32 @@ enum Difficulty {
 }
 
 model Problem {
-    id            String     @id @default(uuid())
+    id            String       @id @default(uuid())
     title         String
-    description   String     @db.Text
+    description   String       @db.Text
     difficulty    Difficulty
     timeLimitMs   Int
     memoryLimitMb Int
-    isPublished   Boolean    @default(false)
+    isPublished   Boolean      @default(false)
     createdBy     String
-    creator       User       @relation(fields: [createdBy], references: [id], onDelete: Cascade)
-    createdAt     DateTime   @default(now())
-    updatedAt     DateTime   @updatedAt
+    creator       User         @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+    createdAt     DateTime     @default(now())
+    updatedAt     DateTime     @updatedAt
     testCases     TestCase[]
+    submissions   Submission[]
 
     @@map("problems")
+}
+
+model TestCase {
+    id                String             @id @default(uuid())
+    input             String             @db.Text
+    expectedOutput    String             @db.Text
+    order             Int
+    isSample          Boolean            @default(false)
+    problemId         String
+    problem           Problem            @relation(fields: [problemId], references: [id], onDelete: Cascade)
+    submissionResults SubmissionResult[]
+
+    @@map("test_cases")
 }

@@ -15,6 +15,7 @@ model User {
     updatedAt     DateTime       @updatedAt
     refreshTokens RefreshToken[]
     problems      Problem[]
+    submissions   Submission[]
 
     @@map("users")
 }
