@@ -6,6 +6,7 @@ import { authRouter } from './modules/auth/index.js';
 import { errorHandler } from './middleware/error.js';
 import { prisma } from './lib/prisma.js';
 import { problemRouter, testCaseRouter } from './modules/problem/index.js';
+import { submissionRouter } from './modules/submission/index.js';
 
 const allowedOrigins: string[] = [config.frontendUrl];
 
@@ -54,6 +55,8 @@ export const createApp = (): Express => {
   app.use('/api/problems', problemRouter);
 
   app.use('/api/problems/:problemId/test-cases', testCaseRouter);
+
+  app.use('/api/submissions', submissionRouter);
 
   app.use(errorHandler);
 
