@@ -5,8 +5,7 @@ import config from './config/config.js';
 import { authRouter } from './modules/auth/index.js';
 import { errorHandler } from './middleware/error.js';
 import { prisma } from './lib/prisma.js';
-import { problemRouter } from './modules/problem/index.js';
-import { testCaseRouter } from './modules/test-case/index.js';
+import { problemRouter, testCaseRouter } from './modules/problem/index.js';
 
 const allowedOrigins: string[] = [config.frontendUrl];
 
