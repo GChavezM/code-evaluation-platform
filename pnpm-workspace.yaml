@@ -4,6 +4,10 @@ packages:
 
 onlyBuiltDependencies:
   - '@prisma/engines'
+  - cpu-features
   - esbuild
+  - msgpackr-extract
   - msw
   - prisma
+  - protobufjs
+  - ssh2
