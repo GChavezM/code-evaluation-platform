@@ -16,9 +16,20 @@ export type SubmissionWithResults = Prisma.SubmissionGetPayload<{
   };
 }>;
 
+export type SubmissionWithContext = Prisma.SubmissionGetPayload<{
+  include: {
+    problem: {
+      include: {
+        testCases: true;
+      };
+    };
+  };
+}>;
+
 export interface ISubmissionRepository {
   findAll(filters?: { userId?: string; problemId?: string }): Promise<Submission[]>;
   findById(id: string): Promise<SubmissionWithResults | null>;
+  findByIdWithContext(id: string): Promise<SubmissionWithContext | null>;
   create(data: Prisma.SubmissionUncheckedCreateInput): Promise<Submission>;
   updateStatus(id: string, status: SubmissionStatus): Promise<Submission>;
   setQueueJobId(id: string, queueJobId: string): Promise<Submission>;
@@ -55,21 +66,38 @@ export class SubmissionRepository implements ISubmissionRepository {
       },
     });
   }
+
+  async findByIdWithContext(id: string): Promise<SubmissionWithContext | null> {
+    return this.db.submission.findUnique({
+      where: { id },
+      include: {
+        problem: {
+          include: {
+            testCases: { orderBy: { order: 'asc' } },
+          },
+        },
+      },
+    });
+  }
+
   async create(data: Prisma.SubmissionUncheckedCreateInput): Promise<Submission> {
     return this.db.submission.create({ data });
   }
+
   async updateStatus(id: string, status: SubmissionStatus): Promise<Submission> {
     return this.db.submission.update({
       where: { id },
       data: { status },
     });
   }
+
   async setQueueJobId(id: string, queueJobId: string): Promise<Submission> {
     return this.db.submission.update({
       where: { id },
       data: { queueJobId },
     });
   }
+
   async addResult(data: Prisma.SubmissionResultUncheckedCreateInput): Promise<SubmissionResult> {
     return this.db.submissionResult.create({ data });
   }
