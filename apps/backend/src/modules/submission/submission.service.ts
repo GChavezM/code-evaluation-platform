@@ -1,21 +1,46 @@
-import type { Submission } from '../../generated/prisma/client.js';
+import type { ProgramingLanguage, Submission } from '../../generated/prisma/client.js';
 import { SubmissionStatus, UserRole } from '../../generated/prisma/enums.js';
-import { ForbiddenError, NotFoundError } from '../../lib/errors.js';
+import { ForbiddenError, NotFoundError, UnsupportedLanguageError } from '../../lib/errors.js';
 import { Result } from '../../lib/result.js';
-import type { IEvaluationQueue } from '../../queues/evaluation.queue.js';
+import type { IEvaluationStrategyRegistry, TestCaseResult } from './strategies/index.js';
 import type { ISubmissionRepository, SubmissionWithResults } from './submission.repository.js';
 import type { CreateSubmissionDto, ListSubmissionsQueryDto } from './submission.shema.js';
 
+export interface SubmissionExecutionContext {
+  submissionId: string;
+  sourceCode: string;
+  language: ProgramingLanguage;
+  timeLimitMs: number;
+  memoryLimitMb: number;
+  testCases: Array<{
+    id: string;
+    input: string;
+    expectedOutput: string;
+  }>;
+}
+
 export class SubmissionService {
   private readonly submissionRepo: ISubmissionRepository;
-  private readonly evaluationQueue: IEvaluationQueue;
+  private readonly strategyRegistry: IEvaluationStrategyRegistry;
 
-  constructor(submissionRepo: ISubmissionRepository, evaluationQueue: IEvaluationQueue) {
+  constructor(
+    submissionRepo: ISubmissionRepository,
+    strategyRegistry: IEvaluationStrategyRegistry
+  ) {
     this.submissionRepo = submissionRepo;
-    this.evaluationQueue = evaluationQueue;
+    this.strategyRegistry = strategyRegistry;
   }
 
-  async create(dto: CreateSubmissionDto, userId: string): Promise<Result<Submission, never>> {
+  async create(
+    dto: CreateSubmissionDto,
+    userId: string
+  ): Promise<Result<Submission, UnsupportedLanguageError>> {
+    const strategy = this.strategyRegistry.get(dto.language as ProgramingLanguage);
+
+    if (!strategy) {
+      return Result.error(new UnsupportedLanguageError(dto.language));
+    }
+
     const submission = await this.submissionRepo.create({
       sourceCode: dto.sourceCode,
       language: dto.language,
@@ -23,16 +48,10 @@ export class SubmissionService {
       userId,
     });
 
-    const jobId = await this.evaluationQueue.add({
-      submissionId: submission.id,
-      sourceCode: submission.sourceCode,
-      language: submission.language,
-      problemId: submission.problemId,
-    });
+    const jobId = await strategy.enqueue(submission);
+    await this.submissionRepo.setQueueJobId(submission.id, jobId);
 
-    const queued = await this.submissionRepo.setQueueJobId(submission.id, jobId);
-
-    return Result.ok(queued);
+    return Result.ok(submission);
   }
 
   async getAll(
@@ -89,5 +108,76 @@ export class SubmissionService {
 
     const updated = await this.submissionRepo.updateStatus(id, status);
     return Result.ok(updated);
+  }
+
+  async getExecutionContext(
+    submissionId: string
+  ): Promise<Result<SubmissionExecutionContext, NotFoundError>> {
+    const submission = await this.submissionRepo.findByIdWithContext(submissionId);
+
+    if (!submission) {
+      return Result.error(new NotFoundError('Submission', submissionId));
+    }
+
+    return Result.ok({
+      submissionId: submission.id,
+      sourceCode: submission.sourceCode,
+      language: submission.language,
+      timeLimitMs: submission.problem.timeLimitMs,
+      memoryLimitMb: submission.problem.memoryLimitMb,
+      testCases: submission.problem.testCases.map((tc) => ({
+        id: tc.id,
+        input: tc.input,
+        expectedOutput: tc.expectedOutput,
+      })),
+    });
+  }
+
+  async finalizeResults(
+    submissionId: string,
+    results: TestCaseResult[]
+  ): Promise<Result<void, NotFoundError>> {
+    const exists = await this.submissionRepo.findById(submissionId);
+
+    if (!exists) {
+      return Result.error(new NotFoundError('Submission', submissionId));
+    }
+
+    for (const result of results) {
+      await this.submissionRepo.addResult({
+        submissionId,
+        testCaseId: result.testCaseId,
+        status: result.status,
+        actualOutput: result.actualOutput,
+        executionTimeMs: result.executionTimeMs,
+        memoryUsedMb: result.memoryUsageMb,
+      });
+    }
+
+    const finalStatus = this.determineFinalStatus(results);
+    await this.submissionRepo.updateStatus(submissionId, finalStatus);
+
+    return Result.ok(undefined);
+  }
+
+  private determineFinalStatus(results: TestCaseResult[]): SubmissionStatus {
+    const statuses = results.map((r) => r.status);
+
+    const priority: SubmissionStatus[] = [
+      SubmissionStatus.COMPILATION_ERROR,
+      SubmissionStatus.TIME_LIMIT_EXCEEDED,
+      SubmissionStatus.MEMORY_LIMIT_EXCEEDED,
+      SubmissionStatus.RUNTIME_ERROR,
+      SubmissionStatus.WRONG_ANSWER,
+      SubmissionStatus.ACCEPTED,
+    ];
+
+    for (const status of priority) {
+      if (statuses.includes(status)) {
+        return status;
+      }
+    }
+
+    return SubmissionStatus.ACCEPTED;
   }
 }
