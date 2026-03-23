@@ -4,7 +4,7 @@ import { ForbiddenError, NotFoundError, UnsupportedLanguageError } from '../../l
 import { Result } from '../../lib/result.js';
 import type { IEvaluationStrategyRegistry, TestCaseResult } from './strategies/index.js';
 import type { ISubmissionRepository, SubmissionWithResults } from './submission.repository.js';
-import type { CreateSubmissionDto, ListSubmissionsQueryDto } from './submission.shema.js';
+import type { CreateSubmissionDto, ListSubmissionsQueryDto } from './submission.schema.js';
 
 export interface SubmissionExecutionContext {
   submissionId: string;

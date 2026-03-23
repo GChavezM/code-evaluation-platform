@@ -7,7 +7,7 @@ import {
   createSubmissionSchema,
   listSubmissionsQuerySchema,
   submissionIdSchema,
-} from './submission.shema.js';
+} from './submission.schema.js';
 
 export class SubmissionController {
   private readonly submissionService: SubmissionService;
