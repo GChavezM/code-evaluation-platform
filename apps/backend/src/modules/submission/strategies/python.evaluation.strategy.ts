@@ -247,8 +247,10 @@ export class PythonEvaluationStrategy implements IEvaluationStrategy {
 
   private isPythonSyntaxError(stderr: string): boolean {
     return (
-      (stderr.includes('SyntaxError') || stderr.includes('IndentationError')) &&
-      stderr.includes('TabError')
+      stderr.includes('SyntaxError') ||
+      stderr.includes('IndentationError') ||
+      stderr.includes('TabError') ||
+      stderr.includes('TypeError')
     );
   }
 }
