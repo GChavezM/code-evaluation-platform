@@ -12,7 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Link, Outlet, useNavigate } from 'react-router';
-import { signOut } from '@/api/auth.api';
+import { signOut } from '@/api';
 import { clearAccessToken } from '@/lib/tokenStore';
 import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
