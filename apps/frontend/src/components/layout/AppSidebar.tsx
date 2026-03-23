@@ -1,4 +1,4 @@
-import { signOut } from '@/api/auth.api';
+import { signOut } from '@/api';
 import { clearAccessToken, getCurrentUser } from '@/lib/tokenStore';
 import { Code2, LayoutDashboard, LogOut, ShieldCheck, User } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router';

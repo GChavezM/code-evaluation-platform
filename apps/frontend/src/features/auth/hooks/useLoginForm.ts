@@ -1,4 +1,4 @@
-import { signIn } from '@/api/auth.api';
+import { signIn } from '@/api';
 import { setAccessToken } from '@/lib/tokenStore';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { isAxiosError } from 'axios';
