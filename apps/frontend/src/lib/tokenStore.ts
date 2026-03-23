@@ -6,6 +6,14 @@ type RefreshTokenApiResponse = {
   };
 };
 
+export interface TokenPayload {
+  sub: string;
+  email: string;
+  role: string;
+  iat: number;
+  exp: number;
+}
+
 let accessToken: string | null = null;
 
 let initPromise: Promise<void> | null = null;
@@ -53,4 +61,22 @@ export async function initAuth(): Promise<void> {
   })();
 
   return initPromise;
+}
+
+export function decodeTokenPayload(token: string): TokenPayload | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3 || !parts[1]) {
+      return null;
+    }
+    const padded = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(padded)) as TokenPayload;
+  } catch {
+    return null;
+  }
+}
+
+export function getCurrentUser(): TokenPayload | null {
+  const token = getAccessToken();
+  return token ? decodeTokenPayload(token) : null;
 }
