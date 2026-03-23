@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { ForbiddenError, NotFoundError } from '../../lib/errors.js';
+import { ForbiddenError, NotFoundError, UnsupportedLanguageError } from '../../lib/errors.js';
 import { isAuthenticated } from '../auth/auth.middleware.js';
 import type { SubmissionService } from './submission.service.js';
 import {
@@ -29,6 +29,16 @@ export class SubmissionController {
     }
 
     const result = await this.submissionService.create(parsed.data, req.user.id);
+
+    if (result.isError()) {
+      const error = result.getError();
+      if (error instanceof UnsupportedLanguageError) {
+        res.status(422).json({ error: error.message });
+        return;
+      }
+      res.status(500).json({ error: 'An unexpected error occurred' });
+      return;
+    }
 
     res.status(202).json({ data: result.unwrap() });
   }
