@@ -50,3 +50,11 @@ export class ForbiddenError extends Error {
     this.name = 'ForbiddenError';
   }
 }
+
+export class UnsupportedLanguageError extends Error {
+  readonly code = 'UNSUPPORTED_LANGUAGE';
+  constructor(language: string) {
+    super(`The programming language "${language}" is not supported.`);
+    this.name = 'UnsupportedLanguageError';
+  }
+}
