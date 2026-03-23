@@ -12,9 +12,7 @@ export function RegisterPage() {
         <RegisterForm
           form={form}
           serverError={serverError}
-          onSubmit={(event) => {
-            void onSubmit(event);
-          }}
+          onSubmit={(event) => void onSubmit(event)}
         />
       </div>
     </div>

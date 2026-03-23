@@ -12,9 +12,7 @@ export function LoginPage() {
         <LoginForm
           form={form}
           serverError={serverError}
-          onSubmit={(event) => {
-            void onSubmit(event);
-          }}
+          onSubmit={(event) => void onSubmit(event)}
         />
       </div>
     </div>
