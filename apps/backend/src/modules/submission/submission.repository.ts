@@ -8,6 +8,7 @@ import type {
 
 export type SubmissionWithResults = Prisma.SubmissionGetPayload<{
   include: {
+    problem: true;
     submissionResults: {
       include: {
         testCase: true;
@@ -57,6 +58,7 @@ export class SubmissionRepository implements ISubmissionRepository {
     return this.db.submission.findUnique({
       where: { id },
       include: {
+        problem: true,
         submissionResults: {
           include: {
             testCase: true,
