@@ -3,6 +3,7 @@ import { router } from '@/router';
 import { useEffect } from 'react';
 import { clearAccessToken } from './lib/tokenStore';
 import { AUTH_LOGOUT_EVENT } from './lib/axios';
+import { AppErrorBoundary } from './components/layout/AppErrorBoundary';
 
 function App() {
   useEffect(() => {
@@ -16,7 +17,11 @@ function App() {
     return () => window.removeEventListener(AUTH_LOGOUT_EVENT, handleLogout);
   }, []);
 
-  return <RouterProvider router={router} />;
+  return (
+    <AppErrorBoundary>
+      <RouterProvider router={router} />
+    </AppErrorBoundary>
+  );
 }
 
 export default App;
