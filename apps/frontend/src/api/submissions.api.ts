@@ -1,4 +1,5 @@
 import api from '@/lib/axios';
+import type { Difficulty } from './problems.api';
 
 export type SubmissionStatus =
   | 'PENDING'
@@ -41,7 +42,21 @@ export interface Submission {
   problemId: string;
 }
 
+export interface SubmissionProblemReference {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: Difficulty;
+  timeLimitMs: number;
+  memoryLimitMb: number;
+  isPublished: boolean;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface SubmissionWithResults extends Submission {
+  problem: SubmissionProblemReference;
   submissionResults: SubmissionResult[];
 }
 
