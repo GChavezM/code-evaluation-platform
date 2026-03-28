@@ -82,7 +82,53 @@ Pendiente por completar
 
 ## Arquitectura
 
-Pendiente por completar
+G-Shield Code es un **monolito modular** estructurado como un monorepo `pnpm` con dos aplicaciones: `@app/frontend` (React + Vite) y `@app/backend` (Express + Worker). Comparten configuración TypeScript y herramientas desde la raíz.
+
+### Estructura del backend
+
+El backend se organiza en **módulos de funcionalidad** autocontenidos. Cada módulo posee todas sus capas en una sola carpeta siguiendo la convención `{módulo}.{capa}.ts`:
+
+| Módulo       | Responsabilidad                                                         |
+| ------------ | ----------------------------------------------------------------------- |
+| `auth`       | Registro, autenticacion, JWT y refresh token rotation                   |
+| `problem`    | Gestion de problemas y casos de prueba                                  |
+| `submission` | Envio de codigo, evaluacion mediante Docker y resultados en tiempo real |
+
+Cada módulo expone únicamente su `index.ts` como API pública. Ningun módulo importa archivos internos de otro.
+
+### Patrones de diseño
+
+| Patron     | Proposito                                                                          |
+| ---------- | ---------------------------------------------------------------------------------- |
+| Repository | Desacopla la logica de negocio de Prisma. Interfaz intercambiable por test doubles |
+| Service    | Centraliza la logica de negocio con inyeccion de dependencias                      |
+| Strategy   | Encapsula la logica de evaluacion por lenguaje (`PythonEvaluationStrategy`)        |
+| Result     | Convierte errores de dominio esperados en valores tipados, sin `throw`             |
+
+### Flujo de evaluacion
+
+```mermaid
+sequenceDiagram
+  participant FE as Frontend
+  participant API as Backend API
+  participant Q as Redis / BullMQ
+  participant W as Worker
+  participant D as Docker Sandbox
+  participant WS as Socket.IO
+
+  FE->>API: POST /api/submissions
+  API->>Q: Encolar trabajo de evaluacion
+  API-->>FE: HTTP 202 Accepted
+
+  FE->>WS: Suscribirse al room de la submission
+  Q->>W: Desencolar trabajo
+  W->>D: Ejecutar codigo por caso de prueba
+  D-->>W: Resultado (stdout, exitCode, tiempo, memoria)
+  W->>WS: Emitir eventos de progreso y resultado
+  WS-->>FE: submission:update en tiempo real
+```
+
+> Para la documentacion completa de la arquitectura, patrones y diagramas de la arquitectura, ver [`docs/architecture/ARCHITECTURE.md`](docs/architecture/ARCHITECTURE.md).
 
 ---
 
