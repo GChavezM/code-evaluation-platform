@@ -15,6 +15,10 @@ export interface TestCaseResult {
   memoryUsageMb: number | null;
 }
 
+export interface EvaluationExecutionHooks {
+  onTestCaseResult?: (result: TestCaseResult, index: number, total: number) => Promise<void> | void;
+}
+
 export interface SubmissionExcecutionContext {
   submissionId: string;
   sourceCode: string;
@@ -28,5 +32,8 @@ export interface IEvaluationStrategy {
   readonly language: ProgramingLanguage;
 
   enqueue(submission: Submission): Promise<string>;
-  execute(context: SubmissionExcecutionContext): Promise<TestCaseResult[]>;
+  execute(
+    context: SubmissionExcecutionContext,
+    hooks?: EvaluationExecutionHooks
+  ): Promise<TestCaseResult[]>;
 }

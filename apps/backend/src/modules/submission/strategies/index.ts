@@ -2,6 +2,7 @@ import type { ProgramingLanguage } from '../../../generated/prisma/enums.js';
 import type { IEvaluationStrategy } from './evaluation.strategy.js';
 
 export type {
+  EvaluationExecutionHooks,
   IEvaluationStrategy,
   SubmissionExcecutionContext,
   TestCaseResult,

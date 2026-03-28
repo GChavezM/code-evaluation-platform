@@ -1,6 +1,7 @@
 import Docker from 'dockerode';
 import { ProgramingLanguage } from '../../../generated/prisma/enums.js';
 import type {
+  EvaluationExecutionHooks,
   IEvaluationStrategy,
   SubmissionExcecutionContext,
   TestCaseInput,
@@ -71,10 +72,14 @@ export class PythonEvaluationStrategy implements IEvaluationStrategy {
     });
   }
 
-  async execute(context: SubmissionExcecutionContext): Promise<TestCaseResult[]> {
+  async execute(
+    context: SubmissionExcecutionContext,
+    hooks?: EvaluationExecutionHooks
+  ): Promise<TestCaseResult[]> {
     const results: TestCaseResult[] = [];
+    const total = context.testCases.length;
 
-    for (const testCase of context.testCases) {
+    for (const [index, testCase] of context.testCases.entries()) {
       const result = await this.runSingleTestCase(
         context.sourceCode,
         testCase,
@@ -82,6 +87,7 @@ export class PythonEvaluationStrategy implements IEvaluationStrategy {
         context.memoryLimitMb
       );
       results.push(result);
+      await hooks?.onTestCaseResult?.(result, index + 1, total);
 
       if (result.status === SubmissionStatus.COMPILATION_ERROR) {
         const rest = context.testCases.slice(results.length).map(
@@ -94,6 +100,13 @@ export class PythonEvaluationStrategy implements IEvaluationStrategy {
           })
         );
         results.push(...rest);
+        for (let restIndex = index + 1; restIndex < total; restIndex += 1) {
+          await hooks?.onTestCaseResult?.(
+            results[restIndex] as TestCaseResult,
+            restIndex + 1,
+            total
+          );
+        }
         break;
       }
     }
