@@ -10,7 +10,10 @@ export interface BreadcrumbItem {
 const SEGMENT_LABELS: Record<string, string> = {
   dashboard: 'Dashboard',
   problems: 'Problems',
-  profile: 'Profile',
+  submissions: 'Submissions',
+  solve: 'Solve',
+  new: 'New',
+  edit: 'Edit',
 };
 
 function humanize(segment: string): string {
