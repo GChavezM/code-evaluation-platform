@@ -124,28 +124,6 @@ function computeAdminStats(problems: Problem[], submissions: Submission[]): Admi
   };
 }
 
-const EMPTY_CODER_STATS: CoderStats = {
-  totalSubmissions: 0,
-  accepted: 0,
-  problemsAttempted: 0,
-  acceptanceRate: 0,
-};
-
-const EMPTY_EVALUATOR_STATS: EvaluatorStats = {
-  totalProblems: 0,
-  published: 0,
-  drafts: 0,
-  totalSubmissions: 0,
-};
-
-const EMPTY_ADMIN_STATS: AdminStats = {
-  totalProblems: 0,
-  totalSubmissions: 0,
-  accepted: 0,
-  acceptanceRate: 0,
-  statusBreakdown: {} as Record<SubmissionStatus, number>,
-};
-
 export function useDashboardStats(): DashboardData {
   const [problems, setProblems] = useState<Problem[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
