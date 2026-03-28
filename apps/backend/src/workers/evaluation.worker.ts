@@ -25,9 +25,14 @@ async function processEvaluationJob(job: Job<EvaluationJobData>): Promise<void> 
     throw new Error(`No evaluation strategy found for language ${context.language}`);
   }
 
-  const results = await strategy.execute(context);
+  const results = await strategy.execute(context, {
+    onTestCaseResult: async (result, completed, total) => {
+      await submissionService.appendResult(submissionId, context.userId, result);
+      submissionService.emitProgress(submissionId, context.userId, completed, total);
+    },
+  });
 
-  const finalizeResult = await submissionService.finalizeResults(submissionId, results);
+  const finalizeResult = await submissionService.completeEvaluation(submissionId, results);
   if (finalizeResult.isError()) {
     throw new Error(
       `Failed to persist results for submission ${submissionId}: ${finalizeResult.getError().message}`
