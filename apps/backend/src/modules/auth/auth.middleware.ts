@@ -18,8 +18,7 @@ export const createAuthenticateMiddleware = () => {
     const authHeader = req.headers['authorization'];
 
     if (!authHeader?.startsWith('Bearer ')) {
-      // res.status(401).json({ error: 'Authentication required' });
-      next();
+      res.status(401).json({ error: 'Authentication required' });
       return;
     }
 
@@ -49,8 +48,7 @@ export const requireRole = (...allowedRoles: UserRole[]) => {
     }
 
     if (!allowedRoles.includes(req.user.role)) {
-      // res.status(403).json({ error: 'Insufficient permissions' });
-      next();
+      res.status(403).json({ error: 'Insufficient permissions' });
       return;
     }
 
