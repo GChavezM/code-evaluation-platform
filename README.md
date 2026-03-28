@@ -29,9 +29,75 @@ Diseñar y desarrollar una plataforma full stack con arquitectura modular que pe
 
 ---
 
-## Alcance
+## Alcances
 
-Pendiente por completar
+G-Shield Code abarca el desarrollo e integración de los siguientes módulos funcionales, validados como requisitos técnicos del 60% de avance del proyecto:
+
+### 1. Backend y lógica del sistema
+
+El backend gestiona todas las operaciones centrales de la plataforma:
+
+- Registro y autenticación de usuarios con JWT (access token + refresh token rotation)
+- Gestión completa de problemas de programación (crear, editar, consultar)
+- Registro de envíos de código por parte de los usuarios
+- Evaluación automática de código contra casos de prueba definidos
+- Consulta y exposición de resultados de evaluación vía API REST
+
+### 2. Persistencia de datos
+
+La base de datos PostgreSQL almacena y permite recuperar correctamente toda la información generada por la plataforma. El modelo de datos incluye las siguientes entidades principales:
+
+- `users` — usuarios registrados con rol (`CODER`, `EVALUATOR`, `ADMIN`)
+- `problems` — problemas de programación con sus restricciones y límites
+- `test_cases` — casos de prueba asociados a cada problema
+- `submissions` — envíos de código realizados por los usuarios
+- `submission_results` — resultados individuales por caso de prueba evaluado
+
+### 3. Gestión de problemas de programación
+
+El sistema permite a usuarios con rol `EVALUATOR` administrar el catálogo de problemas:
+
+- Registrar nuevos problemas con descripción, dificultad, límites de tiempo y memoria
+- Editar problemas existentes y controlar su publicación
+- Definir múltiples casos de prueba (públicos y ocultos) por problema
+- Consultar todos los problemas disponibles según el rol del usuario
+
+### 4. Envío y evaluación automática de código
+
+El sistema permite a usuarios con rol `CODER` resolver problemas y recibir retroalimentación automatizada:
+
+- Enviar código fuente desde la interfaz web mediante un editor embebido (Monaco Editor)
+- Ejecutar el código enviado contra los casos de prueba del problema
+- Determinar si la solución es correcta (`ACCEPTED`) o incorrecta (`WRONG_ANSWER`, `TIME_LIMIT_EXCEEDED`, `MEMORY_LIMIT_EXCEEDED`, `RUNTIME_ERROR`, `COMPILATION_ERROR`)
+- Almacenar el resultado de cada evaluación en la base de datos
+- Transmitir actualizaciones en tiempo real al cliente vía WebSocket (Socket.IO)
+
+### 5. Ejecución segura del código (Sandbox)
+
+El código enviado por los usuarios se ejecuta en un entorno controlado mediante contenedores Docker:
+
+- Ejecución aislada con red deshabilitada (`NetworkMode: none`)
+- Límites estrictos de recursos: memoria, CPU (0.5 vCPU), PIDs (64) y tiempo de ejecución
+- Sistema de archivos montado en modo solo lectura
+- Capacidades del sistema operativo eliminadas completamente (`CapDrop: ALL`)
+- Protección contra escalada de privilegios (`no-new-privileges`)
+
+### 6. Interfaz web conectada al backend
+
+La interfaz React permite a los usuarios interactuar con el sistema de extremo a extremo:
+
+- Registro e inicio de sesión con manejo de tokens en memoria
+- Visualización de problemas disponibles según el rol del usuario
+- Editor de código con envío de soluciones y retroalimentación en tiempo real
+- Consulta del historial de envíos y detalle de resultados por caso de prueba
+- Panel de administración de problemas y casos de prueba (roles `EVALUATOR` y `ADMIN`)
+
+### Fuera del alcance (versión actual)
+
+- Soporte de lenguajes distintos a Python (la arquitectura de estrategias permite extensión futura)
+- Sistema de rankings o competencias en tiempo real
+- Análisis de plagio entre soluciones
+- Integración con sistemas externos de autenticación (OAuth)
 
 ---
 
