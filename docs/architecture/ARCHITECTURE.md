@@ -1,7 +1,7 @@
 # G-Shield Code — Architecture
 
-> **Version:** 0.1.0
-> **Last updated:** 2025-03-19
+> **Version:** 0.2.0
+> **Last updated:** 2026-03-28
 > **Author:** Gabriel Chávez
 
 ---
@@ -17,6 +17,8 @@
    - 4.3 [Layer Responsibilities](#43-layer-responsibilities)
    - 4.4 [Layer Communication Rules](#44-layer-communication-rules)
    - 4.5 [Shared Kernel](#45-shared-kernel)
+   - 4.6 [Authentication & Middleware](#46-authentication--middleware)
+   - 4.7 [Real-time Layer](#47-real-time-layer)
 5. [Design Patterns](#5-design-patterns)
    - 5.1 [Repository Pattern](#51-repository-pattern)
    - 5.2 [Service Pattern](#52-service-pattern)
@@ -37,8 +39,8 @@ evaluation of untrusted code in isolated Docker sandboxes. The system is
 structured as a **pnpm monorepo** with two applications (`@app/frontend`,
 `@app/backend`) that share TypeScript configuration and tooling.
 
-The backend is divided into **self-contained feature modules** (e.g. `auth`,
-`submission`, `user`). Each module owns all of its layers co-located in a
+The backend is divided into **self-contained feature modules** (`auth`,
+`problem`, `submission`). Each module owns all of its layers co-located in a
 single folder, following a consistent `{module}.{layer}.ts` naming convention.
 Cross-module communication happens exclusively through each module's public
 `index.ts` — never by importing internal layer files from another module.
@@ -47,86 +49,95 @@ Cross-module communication happens exclusively through each module's public
 
 ## 2. Repository Structure
 
-```
-/
-├── apps/
-│   ├── frontend/                  # @app/frontend — React + Vite SPA
-│   │   ├── src/
-│   │   │   ├── features/          # Feature-scoped components and hooks
-│   │   │   ├── api/               # All HTTP/WS calls (no fetch in components)
-│   │   │   ├── components/        # Shared UI primitives
-│   │   │   └── lib/               # Frontend utilities
-│   │   ├── public/
-│   │   ├── index.html
-│   │   └── vite.config.ts
-│   │
-│   └── backend/                   # @app/backend — Express API + Worker
-│       └── src/
-│           ├── modules/           # ← Feature modules (core of the monolith)
-│           │   ├── auth/
-│           │   ├── submission/
-│           │   └── user/
-│           ├── queues/            # BullMQ job producers
-│           ├── workers/           # BullMQ job consumers
-│           ├── lib/               # Shared kernel (Result, errors, logger)
-│           ├── config/            # Zod-validated environment configuration
-│           ├── app.ts             # Express app assembly
-│           └── server.ts          # HTTP server entry point
-│
-├── libs/                          # Future shared packages (types, utils)
-├── docs/
-│   ├── architecture/              # Architecture Guidelines
-│   └── decisions/                 # Architecture Decision Records (ADRs)
-├── tsconfig.base.json             # Root strict TS config (extended by all apps)
-├── pnpm-workspace.yaml
-├── eslint.config.mts
-├── .prettierrc
-└── package.json
+```mermaid
+flowchart TB
+  root["Repository Root"]
+  apps["apps"]
+  libs["libs"]
+  docs["docs"]
+  config_files["Root config files"]
+
+  root --> apps
+  root --> libs
+  root --> docs
+  root --> config_files
+
+  fe["frontend app"]
+  be["backend app"]
+  apps --> fe
+  apps --> be
+
+  fe_src["frontend src"]
+  fe --> fe_src
+  fe --> fe_public["public"]
+  fe --> fe_html["index.html"]
+  fe --> fe_vite["vite.config.ts"]
+
+  fe_src --> fe_features["features"]
+  fe_src --> fe_api["api"]
+  fe_src --> fe_components["components"]
+  fe_src --> fe_hooks["hooks"]
+  fe_src --> fe_lib["lib"]
+  fe_src --> fe_router["router"]
+
+  be_src["backend src"]
+  be --> be_src
+  be_src --> be_modules["modules"]
+  be_src --> be_queues["queues"]
+  be_src --> be_workers["workers"]
+  be_src --> be_realtime["realtime"]
+  be_src --> be_middleware["middleware"]
+  be_src --> be_lib["lib"]
+  be_src --> be_config["config"]
+  be_src --> be_generated["generated"]
+  be_src --> be_app["app.ts"]
+  be_src --> be_server["server.ts"]
 ```
 
 ---
 
 ## 3. System Diagram
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                          Browser                            │
-│                  React + Vite + TailwindCSS                 │
-└────────────────────────────┬────────────────────────────────┘
-                             │ REST / WebSocket (Socket.IO)
-┌────────────────────────────▼────────────────────────────────┐
-│                    Express HTTP Server                      │
-│  ┌──────────┐  ┌─────────────┐  ┌──────────────────────┐   │
-│  │  Routes  │→ │ Controllers │→ │      Services        │   │
-│  └──────────┘  └──────┬──────┘  │  (Strategy + Result) │   │
-│                        │        └──────────┬─────────────┘  │
-│                 ┌──────▼──────┐            │               │
-│                 │  Validation │   ┌────────┴────────┐      │
-│                 │   (Zod)     │   │                 │      │
-│                 └─────────────┘   │                 │      │
-│                            ┌──────▼──────┐  ┌───────▼────┐ │
-│                            │Repositories │  │BullMQ Queue│ │
-│                            │  (Prisma)   │  │(Producers) │ │
-│                            └──────┬──────┘  └──────┬─────┘ │
-└───────────────────────────────────┼────────────────┼───────┘
-                                    │                │
-               ┌────────────────────▼──┐  ┌──────────▼─────────┐
-               │      PostgreSQL        │  │       Redis         │
-               │   (Primary Storage)   │  │   (Queue / Cache)   │
-               └───────────────────────┘  └──────────┬──────────┘
-                                                      │
-                                           ┌──────────▼───────────┐
-                                           │    BullMQ Worker      │
-                                           │  (Job Consumer)       │
-                                           └──────────┬────────────┘
-                                                      │
-                                           ┌──────────▼───────────┐
-                                           │   Docker Sandbox      │
-                                           │  Isolated Container   │
-                                           │  - No network         │
-                                           │  - Read-only FS       │
-                                           │  - CPU/Mem limits     │
-                                           └──────────────────────┘
+```mermaid
+flowchart TB
+  browser["Browser - React + Vite + TailwindCSS"]
+
+  subgraph api["Express HTTP Server"]
+    direction TB
+
+    route["Routes"]
+    mw["Middleware - Auth and Role Guards"]
+    controller["Controllers"]
+    schema["Schema - Zod"]
+    service["Services - Strategy and Result"]
+    repo["Repositories - Prisma"]
+    queue["BullMQ Queue - Producers"]
+    events["Submission Events - EventEmitter"]
+    socket["Socket.IO Server"]
+
+    route --> mw --> controller
+    controller --> schema
+    controller --> service
+    service --> repo
+    service --> queue
+    service --> events
+    events --> socket
+  end
+
+  db["PostgreSQL - Primary Database"]
+  redis["Redis - Queue and Cache"]
+  worker["BullMQ Worker - Job Consumer"]
+  sandbox["Docker Sandbox - No network, read-only FS, CPU, memory, PID limits"]
+
+  browser -->|REST + WebSocket| api
+  socket -->|WS events| browser
+
+  repo --> db
+  queue --> redis
+  redis --> worker
+  worker --> sandbox
+  worker --> repo
+  worker --> events
 ```
 
 ---
@@ -136,41 +147,25 @@ Cross-module communication happens exclusively through each module's public
 ### 4.1 Modular Structure
 
 The backend is organised around **feature modules**. Each module is a
-self-contained vertical slice — it owns its routes, controller, validation
-schemas, service, repository, and strategies. No layer file from one module
+self-contained vertical slice — it owns its routes, controller, schema,
+service, repository, and optional strategies. No layer file from one module
 may be imported directly by another module.
 
-```
-src/modules/
-│
-├── auth/                          # Authentication & authorisation
-│   ├── auth.routes.ts
-│   ├── auth.controller.ts
-│   ├── auth.schema.ts
-│   ├── auth.service.ts
-│   ├── auth.repository.ts
-│   └── index.ts                   # ← public API of this module
-│
-├── submission/                    # Code submission & evaluation
-│   ├── submission.routes.ts
-│   ├── submission.controller.ts
-│   ├── submission.schema.ts
-│   ├── submission.service.ts
-│   ├── submission.repository.ts
-│   ├── strategies/
-│   │   ├── evaluation.strategy.ts            # IEvaluationStrategy interface
-│   │   ├── python.evaluation.strategy.ts     # Python implementation
-│   │   ├── javascript.evaluation.strategy.ts # Future implementation
-│   │   └── index.ts                          # Registry + registrations
-│   └── index.ts
-│
-└── user/                          # User profile management
-    ├── user.routes.ts
-    ├── user.controller.ts
-    ├── user.schema.ts
-    ├── user.service.ts
-    ├── user.repository.ts
-    └── index.ts
+```mermaid
+flowchart TB
+  modules["src/modules"]
+  auth["auth module"]
+  problem["problem module"]
+  submission["submission module"]
+
+  modules --> auth
+  modules --> problem
+  modules --> submission
+
+  auth --> auth_layers["routes controller schema service middleware repository index"]
+  problem --> problem_layers["routes controller schema service repository test-case routes controller schema service repository index"]
+  submission --> submission_layers["routes controller schema service repository events index"]
+  submission --> submission_strategies["strategies: evaluation interface, python strategy, registry"]
 ```
 
 ### 4.2 Module Anatomy
@@ -179,14 +174,15 @@ Every module follows the same internal file structure and naming convention.
 All layers are **co-located** — there are no global `controllers/`,
 `services/`, or `repositories/` folders.
 
-```
-{module}/
-├── {module}.routes.ts       # Route definitions — no logic
-├── {module}.controller.ts   # HTTP boundary — parse, validate, respond
-├── {module}.schema.ts       # Zod schemas + inferred DTO types
-├── {module}.service.ts      # Business logic — strategies + Result
-├── {module}.repository.ts   # Data access — Prisma only
-└── index.ts                 # Public API — only export what other modules need
+```mermaid
+flowchart TB
+  module_root["module root"]
+  module_root --> layer_routes["module.routes.ts"]
+  module_root --> layer_controller["module.controller.ts"]
+  module_root --> layer_schema["module.schema.ts"]
+  module_root --> layer_service["module.service.ts"]
+  module_root --> layer_repository["module.repository.ts"]
+  module_root --> layer_index["index.ts"]
 ```
 
 **Naming convention:** `{module}.{layer}.ts`
@@ -195,7 +191,7 @@ All layers are **co-located** — there are no global `controllers/`,
 | -------------------- | ---------- |
 | `auth.routes.ts`     | Route      |
 | `auth.controller.ts` | Controller |
-| `auth.schema.ts`     | Validation |
+| `auth.schema.ts`     | Schema     |
 | `auth.service.ts`    | Service    |
 | `auth.repository.ts` | Repository |
 
@@ -205,72 +201,151 @@ All layers are **co-located** — there are no global `controllers/`,
 
 ### 4.3 Layer Responsibilities
 
-| Layer            | File                       | Responsibility                                                                                                                                                       |
-| ---------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Route**        | `{module}.routes.ts`       | Register URL path + HTTP verb. Attach controller methods. Zero logic.                                                                                                |
-| **Controller**   | `{module}.controller.ts`   | Invoke the validation layer to parse the request. Delegate to the service. Map the `Result` to an HTTP response.                                                     |
-| **Validation**   | `{module}.schema.ts`       | Declare all Zod schemas for this module. Export inferred DTO types. Naming: lower camelCase identifiers. Single source of truth for all input shapes in this module. |
-| **Service**      | `{module}.service.ts`      | Orchestrate business rules. Select and invoke strategies. Coordinate repositories. Return a typed `Result<T, E>`.                                                    |
-| **Repository**   | `{module}.repository.ts`   | All and only Prisma interactions for this module's aggregate. Exposes a typed `I{Module}Repository` interface.                                                       |
-| **Strategy**     | `strategies/*.strategy.ts` | One pluggable algorithm implementation per variant. Implements a shared interface defined in the same `strategies/` folder.                                          |
-| **Module index** | `index.ts`                 | Re-exports the public surface of the module (router, service interface, public types). Hides all internal layers.                                                    |
+| Layer            | File                       | Responsibility                                                                                                                                           |
+| ---------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Route**        | `{module}.routes.ts`       | Register URL path + HTTP verb. Attach middleware (authenticate, requireRole) and controller methods. Zero business logic.                                |
+| **Controller**   | `{module}.controller.ts`   | Parse the request via the schema layer. Delegate to the service. Map the `Result` to an HTTP response using `result.isError()` / `result.unwrap()`.      |
+| **Schema**       | `{module}.schema.ts`       | Declare all Zod schemas for this module. Export inferred DTO types. Single source of truth for all input shapes. Errors formatted with `z.treeifyError`. |
+| **Service**      | `{module}.service.ts`      | Orchestrate business rules. Select and invoke strategies. Coordinate repositories and event emitters. Return a typed `Result<T, E>`.                     |
+| **Repository**   | `{module}.repository.ts`   | All and only Prisma interactions for this module's aggregate. Exposes a typed `I{Module}Repository` interface.                                           |
+| **Strategy**     | `strategies/*.strategy.ts` | One pluggable algorithm implementation per language variant. Implements a shared `IEvaluationStrategy` interface.                                        |
+| **Events**       | `{module}.events.ts`       | Typed `EventEmitter` subclass for intra-process async signalling (e.g. `SubmissionEvents`). Decouples the service layer from Socket.IO.                  |
+| **Module index** | `index.ts`                 | Instantiates repositories, services, controllers, and routers. Re-exports the public surface (router, service, public types). Hides all internals.       |
 
 ### 4.4 Layer Communication Rules
 
 Inside a module, the permitted call direction is strictly top-down:
 
+```mermaid
+flowchart TB
+  route["Route"] --> middleware["Middleware"]
+  middleware --> controller["Controller"]
+  controller --> schema["Schema parse"]
+  controller --> service["Service"]
+  service --> repository["Repository"]
+  service --> strategy["Strategy"]
+  strategy --> queue["Queue"]
+  service --> events["Events"]
+  worker["Worker"] --> service
 ```
-Route → Controller → Validation (Zod parse)
-                  ↓
-               Service → Repository
-                       → Strategy
-                       → Queue (shared)
 
-Worker (shared) → Service → Repository
-```
+| From       | May call                            | Must NOT call                           |
+| ---------- | ----------------------------------- | --------------------------------------- |
+| Route      | Middleware, Controller              | Service, Schema, Repository, Strategy   |
+| Controller | Service, Schema (safeParse)         | Repository, Queue directly              |
+| Service    | Repository, Strategy, Queue, Events | Controller, Schema                      |
+| Repository | Prisma client only                  | Service, Controller, Schema, Strategy   |
+| Worker     | Service                             | Controller                              |
+| Strategy   | Queue (via injected producer)       | Service, Controller, Schema, Repository |
 
-| From       | May call                        | Must NOT call                             |
-| ---------- | ------------------------------- | ----------------------------------------- |
-| Route      | Controller                      | Service, Validation, Repository, Strategy |
-| Controller | Service, Validation (Zod parse) | Repository, Queue directly                |
-| Service    | Repository, Strategy, Queue     | Controller, Validation                    |
-| Repository | Prisma client only              | Service, Controller, Validation, Strategy |
-| Worker     | Service                         | Controller                                |
-| Strategy   | Repository                      | Service, Controller, Validation           |
-
-> **Validation is a one-way door.** It is called by the controller to parse
+> **Schema is a one-way door.** It is called by the controller to parse
 > incoming data before the service is ever invoked. The service only ever
 > receives already-typed DTOs — it never re-validates.
 
 ### 4.5 Shared Kernel
 
-Code that is genuinely shared across modules lives in `src/lib/` and
-`src/config/`. These are **not** modules — they are infrastructure
-primitives with no business logic of their own.
+Code that is genuinely shared across modules lives in `src/lib/`,
+`src/config/`, `src/queues/`, `src/workers/`, `src/realtime/`, and
+`src/middleware/`. These are infrastructure primitives with no business logic.
 
-```
-src/
-├── lib/
-│   ├── result.ts        # Result<T, E> type + ok() / err() helpers
-│   ├── errors.ts        # Base domain error classes
-│   └── logger.ts        # Structured logger instance
-│
-├── config/
-│   └── config.ts        # Zod-validated env vars — single entry point to process.env
-│
-├── queues/
-│   └── evaluation.queue.ts   # BullMQ producer (used by the submission module)
-│
-└── workers/
-    └── evaluation.worker.ts  # BullMQ consumer
+```mermaid
+flowchart TB
+  src_root["src"]
+  src_root --> lib_group["lib"]
+  src_root --> config_group["config"]
+  src_root --> queues_group["queues"]
+  src_root --> workers_group["workers"]
+  src_root --> realtime_group["realtime"]
+  src_root --> middleware_group["middleware"]
+
+  lib_group --> lib_result["result.ts"]
+  lib_group --> lib_errors["errors.ts"]
+  lib_group --> lib_jwt["jwt.ts"]
+  lib_group --> lib_prisma["prisma.ts"]
+
+  config_group --> cfg_file["config.ts"]
+  queues_group --> queue_file["evaluation.queue.ts"]
+  workers_group --> worker_file["evaluation.worker.ts"]
+  realtime_group --> socket_file["submission.socket.ts"]
+  middleware_group --> error_file["error.ts"]
 ```
 
 **Rules for the shared kernel:**
 
 - `lib/` files may be imported by any layer in any module.
-- `config/` is imported only by `lib/` files and `app.ts` — never inside a
-  module's business logic directly.
-- Modules must **not** add domain logic to `lib/` — it stays infrastructure.
+- `config/` is imported only by `lib/` files, `app.ts`, and `server.ts` —
+  never directly inside a module's business logic.
+- `realtime/` listens to `SubmissionEvents` and forwards them to connected
+  WebSocket clients — it must not call module internals directly.
+- Modules must **not** add domain logic to any shared kernel folder.
+
+### 4.6 Authentication & Middleware
+
+Authentication is handled entirely inside `src/modules/auth/auth.middleware.ts`
+and exported through `auth/index.ts` as reusable Express middleware.
+
+```typescript
+// Exported from auth/index.ts — used by all protected routes
+export const authenticate = createAuthenticateMiddleware(); // verifies JWT Bearer
+export { isAuthenticated }; // type-guard: Request → AuthenticatedRequest
+export { requireRole }; // factory: (...roles: UserRole[]) => RequestHandler
+```
+
+**Flow inside a protected controller:**
+
+```typescript
+// 1. Route applies middleware
+router.post('/', authenticate, requireRole(UserRole.CODER), (req, res) =>
+  controller.create(req, res)
+);
+
+// 2. Controller narrows the request type
+if (!isAuthenticated(req)) {
+  res.status(401).json({ error: 'Authentication required' });
+  return;
+}
+// req.user is now { id, email, role }
+```
+
+**JWT utilities** (`src/lib/jwt.ts`):
+
+| Function             | Purpose                               |
+| -------------------- | ------------------------------------- |
+| `signAccessToken`    | Signs a short-lived access JWT        |
+| `signRefreshToken`   | Signs a long-lived refresh JWT        |
+| `verifyAccessToken`  | Validates and decodes an access token |
+| `verifyRefreshToken` | Validates and decodes a refresh token |
+
+Refresh tokens are persisted in the `refresh_tokens` table and validated
+against the DB on every `/refresh-token` request. Token reuse triggers
+deletion of all user sessions (refresh token rotation).
+
+### 4.7 Real-time Layer
+
+Real-time submission updates flow through a three-layer decoupled pipeline:
+
+```mermaid
+flowchart LR
+  submission_service["SubmissionService"] --> submission_events["SubmissionEvents"]
+  submission_events --> socket_bridge["submission.socket.ts"]
+  socket_bridge --> browser_client["Browser Socket.IO client"]
+```
+
+`SubmissionEvents` (`src/modules/submission/submission.events.ts`) is a typed
+`EventEmitter` subclass. It emits `SubmissionLifecycleEvent` discriminated
+unions of four types:
+
+| Event type | When emitted                                         |
+| ---------- | ---------------------------------------------------- |
+| `queued`   | After the job is enqueued and `queueJobId` is stored |
+| `status`   | Whenever `updateStatus` is called on a submission    |
+| `result`   | After each individual test-case result is persisted  |
+| `progress` | After each test case, carrying `completed / total`   |
+
+The Socket.IO server (`src/realtime/submission.socket.ts`) authenticates
+connections via the access token in `socket.handshake.auth.token`, verifies
+ownership before allowing room joins, and forwards lifecycle events to the
+appropriate submission room.
 
 ---
 
@@ -285,10 +360,11 @@ trivially swappable (e.g. for tests using an in-memory fake).
 
 **Structure:**
 
-```
-ISubmissionRepository (interface, in submission.repository.ts)
-    └── SubmissionRepository          — Prisma implementation
-    └── InMemorySubmissionRepository  — test double
+```mermaid
+flowchart TB
+  repo_interface["ISubmissionRepository interface"]
+  repo_interface --> repo_impl["SubmissionRepository Prisma implementation"]
+  repo_interface --> repo_test_double["InMemorySubmissionRepository test double"]
 ```
 
 **Example:**
@@ -296,60 +372,51 @@ ISubmissionRepository (interface, in submission.repository.ts)
 ```typescript
 // src/modules/submission/submission.repository.ts
 
-import type { PrismaClient } from '@prisma/client';
-import type { CreateSubmissionDto } from './submission.validation.js';
-
-// --- Interface (the contract the service depends on) ---
 export interface ISubmissionRepository {
-  create(data: CreateSubmissionDto & { userId: string }): Promise<Submission>;
-  findById(id: string): Promise<Submission | null>;
-  findAllByUser(userId: string): Promise<Submission[]>;
+  findAll(filters?: { userId?: string; problemId?: string }): Promise<Submission[]>;
+  findById(id: string): Promise<SubmissionWithResults | null>;
+  findByIdWithContext(id: string): Promise<SubmissionWithContext | null>;
+  create(data: Prisma.SubmissionUncheckedCreateInput): Promise<Submission>;
   updateStatus(id: string, status: SubmissionStatus): Promise<Submission>;
+  setQueueJobId(id: string, queueJobId: string): Promise<Submission>;
+  addResult(data: Prisma.SubmissionResultUncheckedCreateInput): Promise<SubmissionResult>;
 }
 
-// --- Prisma implementation ---
 export class SubmissionRepository implements ISubmissionRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  async create(data: CreateSubmissionDto & { userId: string }): Promise<Submission> {
-    return this.db.submission.create({ data });
+  async findById(id: string): Promise<SubmissionWithResults | null> {
+    return this.db.submission.findUnique({
+      where: { id },
+      include: {
+        problem: true,
+        submissionResults: { include: { testCase: true }, orderBy: { createdAt: 'asc' } },
+      },
+    });
   }
 
-  async findById(id: string): Promise<Submission | null> {
-    return this.db.submission.findUnique({ where: { id } });
+  async addResult(data: Prisma.SubmissionResultUncheckedCreateInput): Promise<SubmissionResult> {
+    return this.db.submissionResult.create({ data });
   }
-
-  async findAllByUser(userId: string): Promise<Submission[]> {
-    return this.db.submission.findMany({ where: { userId } });
-  }
-
-  async updateStatus(id: string, status: SubmissionStatus): Promise<Submission> {
-    return this.db.submission.update({ where: { id }, data: { status } });
-  }
+  // … other methods
 }
 ```
 
 > **Rule:** Repository methods are named after **what they do**, not how they
-> do it. `findById` — not `prismaFindUnique`.
+> do it — `findById`, not `prismaFindUnique`. Prisma-specific types (e.g.
+> `Prisma.SubmissionGetPayload`) are confined to the repository file.
 
 ---
 
 ### 5.2 Service Pattern
 
 **Purpose:** Centralise all business logic in a single, testable class.
-Services receive their dependencies (repositories, strategy registry) via
-constructor injection — making them unit-testable without a real database or
-Docker daemon.
+Services receive all dependencies (repositories, strategy registry, event
+emitter) via constructor injection — making them unit-testable without a real
+database or Docker daemon.
 
 ```typescript
 // src/modules/submission/submission.service.ts
-
-import type { ISubmissionRepository } from './submission.repository.js';
-import type { IEvaluationStrategyRegistry } from './strategies/index.js';
-import type { CreateSubmissionDto } from './submission.validation.js';
-import type { Result } from '../../lib/result.js';
-import { ok, err } from '../../lib/result.js';
-import { NotFoundError, UnsupportedLanguageError } from '../../lib/errors.js';
 
 export class SubmissionService {
   constructor(
@@ -357,30 +424,29 @@ export class SubmissionService {
     private readonly strategyRegistry: IEvaluationStrategyRegistry
   ) {}
 
-  async submit(
+  async create(
     dto: CreateSubmissionDto,
     userId: string
   ): Promise<Result<Submission, UnsupportedLanguageError>> {
-    const strategy = this.strategyRegistry.get(dto.language);
+    const strategy = this.strategyRegistry.get(dto.language as ProgramingLanguage);
 
     if (!strategy) {
-      return err(new UnsupportedLanguageError(dto.language));
+      return Result.error(new UnsupportedLanguageError(dto.language));
     }
 
     const submission = await this.submissionRepo.create({ ...dto, userId });
-    await strategy.enqueue(submission);
+    const jobId = await strategy.enqueue(submission);
+    const queued = await this.submissionRepo.setQueueJobId(submission.id, jobId);
 
-    return ok(submission);
-  }
+    submissionEvents.emitLifecycle({
+      type: 'queued',
+      submissionId: queued.id,
+      userId: queued.userId,
+      language: queued.language,
+      queueJobId: jobId,
+    });
 
-  async getById(id: string): Promise<Result<Submission, NotFoundError>> {
-    const submission = await this.submissionRepo.findById(id);
-
-    if (!submission) {
-      return err(new NotFoundError('Submission', id));
-    }
-
-    return ok(submission);
+    return Result.ok(queued);
   }
 }
 ```
@@ -391,18 +457,17 @@ export class SubmissionService {
 
 **Purpose:** Encapsulate each language's evaluation logic behind a shared
 `IEvaluationStrategy` interface. The service never contains
-`if language === 'python'` branches. Adding a new language = adding one new
-class.
+`if language === 'python'` branches. Adding a new language = one new class.
 
 **Structure:**
 
-```
-IEvaluationStrategy (interface)
-    └── PythonEvaluationStrategy
-    └── JavaScriptEvaluationStrategy  ← future
+```mermaid
+flowchart TB
+  eval_interface["IEvaluationStrategy interface"]
+  eval_interface --> python_strategy["PythonEvaluationStrategy implementation"]
 
-IEvaluationStrategyRegistry (interface)
-    └── EvaluationStrategyRegistry    ← map of language → strategy
+  registry_interface["IEvaluationStrategyRegistry interface"]
+  registry_interface --> registry_impl["EvaluationStrategyRegistry implementation"]
 ```
 
 **Interface:**
@@ -410,39 +475,40 @@ IEvaluationStrategyRegistry (interface)
 ```typescript
 // src/modules/submission/strategies/evaluation.strategy.ts
 
-export interface EvaluationResult {
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  executionTimeMs: number;
+export interface TestCaseInput {
+  id: string;
+  input: string;
+  expectedOutput: string;
+}
+
+export interface TestCaseResult {
+  testCaseId: string;
+  status: SubmissionStatus;
+  actualOutput: string | null;
+  executionTimeMs: number | null;
+  memoryUsageMb: number | null;
+}
+
+export interface EvaluationExecutionHooks {
+  onTestCaseResult?: (result: TestCaseResult, index: number, total: number) => Promise<void> | void;
+}
+
+export interface SubmissionExcecutionContext {
+  submissionId: string;
+  sourceCode: string;
+  language: ProgramingLanguage;
+  timeLimitMs: number;
+  memoryLimitMb: number;
+  testCases: TestCaseInput[];
 }
 
 export interface IEvaluationStrategy {
-  readonly language: string;
-  enqueue(submission: Submission): Promise<void>;
-  execute(submission: Submission): Promise<EvaluationResult>;
-}
-```
-
-**Concrete implementation:**
-
-```typescript
-// src/modules/submission/strategies/python.evaluation.strategy.ts
-
-import type { IEvaluationStrategy, EvaluationResult } from './evaluation.strategy.js';
-
-export class PythonEvaluationStrategy implements IEvaluationStrategy {
-  readonly language = 'python';
-
-  async enqueue(submission: Submission): Promise<void> {
-    // Push job into BullMQ Python queue
-  }
-
-  async execute(submission: Submission): Promise<EvaluationResult> {
-    // Spin up Docker container with python:3.12-slim
-    // Run code with timeout + resource limits
-    // Return stdout / stderr / exit code
-  }
+  readonly language: ProgramingLanguage;
+  enqueue(submission: Submission): Promise<string>; // returns jobId
+  execute(
+    context: SubmissionExcecutionContext,
+    hooks?: EvaluationExecutionHooks
+  ): Promise<TestCaseResult[]>;
 }
 ```
 
@@ -451,287 +517,396 @@ export class PythonEvaluationStrategy implements IEvaluationStrategy {
 ```typescript
 // src/modules/submission/strategies/index.ts
 
-import type { IEvaluationStrategy } from './evaluation.strategy.js';
-
-export interface IEvaluationStrategyRegistry {
-  get(language: string): IEvaluationStrategy | undefined;
-  register(strategy: IEvaluationStrategy): void;
-}
-
 export class EvaluationStrategyRegistry implements IEvaluationStrategyRegistry {
-  private readonly strategies = new Map<string, IEvaluationStrategy>();
+  private readonly strategies = new Map<ProgramingLanguage, IEvaluationStrategy>();
 
   register(strategy: IEvaluationStrategy): void {
     this.strategies.set(strategy.language, strategy);
   }
 
-  get(language: string): IEvaluationStrategy | undefined {
+  get(language: ProgramingLanguage): IEvaluationStrategy | undefined {
     return this.strategies.get(language);
   }
 }
 ```
 
-**Registration at startup (`app.ts`):**
+**Registration (at module init in `submission/index.ts`):**
 
 ```typescript
-// src/app.ts
-
-const registry = new EvaluationStrategyRegistry();
-registry.register(new PythonEvaluationStrategy());
-// registry.register(new JavaScriptEvaluationStrategy()); ← add when needed
+export const strategyRegistry = new EvaluationStrategyRegistry();
+strategyRegistry.register(new PythonEvaluationStrategy(evaluationQueue));
+// strategyRegistry.register(new JavaScriptEvaluationStrategy(evaluationQueue));
 ```
 
-> **Adding a new language** = write one new class + one `registry.register()`
+> **Adding a new language** = write one new class + one `strategyRegistry.register()`
 > call. No existing code changes. Open/Closed Principle in practice.
+
+**Docker sandbox constraints (PythonEvaluationStrategy):**
+
+| Constraint       | Value              |
+| ---------------- | ------------------ |
+| Image            | `python:3.12-slim` |
+| Network          | Disabled           |
+| Memory           | `memoryLimitMb` MB |
+| Memory swap      | Same as memory     |
+| CPU              | 0.5 vCPU           |
+| PID limit        | 64                 |
+| Capabilities     | All dropped        |
+| Filesystem mount | Read-only (`ro`)   |
+| Timeout          | `timeLimitMs` ms   |
 
 ---
 
 ### 5.4 Result Pattern
 
 **Purpose:** Make failure explicit at the type level. Services return
-`Result<T, E>` instead of throwing for expected domain errors. The controller
-is forced by the TypeScript compiler to handle both `ok` and `err` branches —
-no silent failures.
+`Result<T, E>` instead of throwing for expected domain errors. Controllers
+handle both branches explicitly — no silent failures.
 
-**Core type:**
+**Core class:**
 
 ```typescript
 // src/lib/result.ts
 
-export type Ok<T> = { success: true; value: T };
-export type Err<E> = { success: false; error: E };
-export type Result<T, E> = Ok<T> | Err<E>;
+export class Result<T, E = Error> {
+  private constructor(
+    private readonly _success: boolean,
+    private readonly _value?: T,
+    private readonly _error?: E
+  ) {}
 
-export const ok = <T>(value: T): Ok<T> => ({ success: true, value });
-export const err = <E>(error: E): Err<E> => ({ success: false, error });
+  static ok<T, E = Error>(value: T): Result<T, E> {
+    return new Result<T, E>(true, value);
+  }
 
-export const isOk = <T, E>(r: Result<T, E>): r is Ok<T> => r.success === true;
-export const isErr = <T, E>(r: Result<T, E>): r is Err<E> => r.success === false;
+  static error<T, E = Error>(error: E): Result<T, E> {
+    return new Result<T, E>(false, undefined, error);
+  }
+
+  isOk(): boolean {
+    return this._success;
+  }
+  isError(): boolean {
+    return !this._success;
+  }
+
+  unwrap(): T {
+    if (this._success) return this._value as T;
+    if (this._error instanceof Error) throw this._error;
+    throw new Error(String(this._error));
+  }
+
+  unwrapOr(fallback: T): T {
+    return this._success ? (this._value as T) : fallback;
+  }
+
+  map<U>(fn: (value: T) => U): Result<U, E> {
+    /* … */
+  }
+  mapError<F>(fn: (error: E) => F): Result<T, F> {
+    /* … */
+  }
+  flatMap<U>(fn: (value: T) => Result<U, E>): Result<U, E> {
+    /* … */
+  }
+
+  getValue(): T | undefined {
+    /* … */
+  }
+
+  // Overloaded — narrows to E when called on Result<never, E>
+  getError(): E | undefined;
+}
 ```
 
-**Domain errors:**
+> **Important:** The Result implementation is a **class**, not a discriminated
+> union. Use `result.isError()` / `result.isOk()` (not `isErr` / `isOk`
+> helper functions — those do not exist in this codebase).
+
+**Domain error classes (`src/lib/errors.ts`):**
 
 ```typescript
-// src/lib/errors.ts
+// Base class — carries statusCode and code for the error middleware
+export class AppError extends Error {
+  constructor(
+    public readonly message: string,
+    public readonly statusCode: number,
+    public readonly code: string
+  ) {
+    super(message);
+  }
+}
 
+// Domain errors — used inside Result<T, E>; mapped to HTTP codes in controllers
 export class NotFoundError extends Error {
   readonly code = 'NOT_FOUND';
-  constructor(resource: string, id: string) {
-    super(`${resource} with id "${id}" was not found.`);
-  }
 }
-
-export class UnsupportedLanguageError extends Error {
-  readonly code = 'UNSUPPORTED_LANGUAGE';
-  constructor(language: string) {
-    super(`Language "${language}" is not supported.`);
-  }
-}
-
 export class UnauthorizedError extends Error {
   readonly code = 'UNAUTHORIZED';
-  constructor() {
-    super('Authentication required.');
-  }
 }
+export class ConflictError extends Error {
+  readonly code = 'CONFLICT';
+}
+export class InvalidCredentialsError extends Error {
+  readonly code = 'INVALID_CREDENTIALS';
+}
+export class ForbiddenError extends Error {
+  readonly code = 'FORBIDDEN';
+}
+export class UnsupportedLanguageError extends Error {
+  readonly code = 'UNSUPPORTED_LANGUAGE';
+}
+```
+
+**Controller pattern (unwrapping Results):**
+
+```typescript
+const result = await this.submissionService.create(parsed.data, req.user.id);
+
+if (result.isError()) {
+  const error = result.getError();
+  if (error instanceof UnsupportedLanguageError) {
+    res.status(422).json({ error: error.message });
+    return;
+  }
+  res.status(500).json({ error: 'An unexpected error occurred' });
+  return;
+}
+
+res.status(202).json({ data: result.unwrap() });
 ```
 
 ---
 
 ### 5.5 Patterns Working Together
 
-The following example shows a complete request cycle for `POST /submissions`,
-illustrating how the Validation layer, Service pattern, Repository pattern,
-Strategy pattern, and Result pattern interact inside a single module.
+The following shows a complete request cycle for `POST /api/submissions`.
 
-**Validation layer** — single source of truth for all input shapes:
+**Schema layer** — single source of truth for all input shapes:
 
 ```typescript
 // src/modules/submission/submission.schema.ts
 
 import { z } from 'zod';
 
+const languagesEnum = z.enum(['PYTHON']);
+
 export const createSubmissionSchema = z.object({
-  code: z.string().min(1).max(10_000),
-  language: z.enum(['python']),
+  sourceCode: z.string().trim().min(1).max(50000),
+  language: languagesEnum,
+  problemId: z.uuid(),
 });
 
-export const getSubmissionSchema = z.object({
-  id: z.string().uuid(),
-});
-
-// Inferred DTO types — consumed by controller, service, and repository
 export type CreateSubmissionDto = z.infer<typeof createSubmissionSchema>;
-export type GetSubmissionDto = z.infer<typeof getSubmissionSchema>;
 ```
 
-**Controller** — parses via the Validation layer, delegates to the Service,
-maps the Result to an HTTP response:
+**Controller** — parses via the schema layer, delegates to service, unwraps Result:
 
 ```typescript
 // src/modules/submission/submission.controller.ts
 
-import type { Request, Response } from 'express';
-import { createSubmissionSchema } from './submission.validation.js';
-import type { SubmissionService } from './submission.service.js';
-import { isErr } from '../../lib/result.js';
-import { UnsupportedLanguageError } from '../../lib/errors.js';
-
-export class SubmissionController {
-  constructor(private readonly submissionService: SubmissionService) {}
-
-  async create(req: Request, res: Response): Promise<void> {
-    // 1. Validation layer parses and types the raw request body
-    const parsed = createSubmissionSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.flatten() });
-      return;
-    }
-
-    // 2. Delegate to the service — controller contains zero business logic
-    const result = await this.submissionService.submit(
-      parsed.data,
-      req.user.id // set by auth middleware
-    );
-
-    // 3. Unwrap the Result — both branches must be explicitly handled
-    if (isErr(result)) {
-      if (result.error instanceof UnsupportedLanguageError) {
-        res.status(422).json({ error: result.error.message });
-        return;
-      }
-      res.status(500).json({ error: 'Unexpected error.' });
-      return;
-    }
-
-    res.status(202).json({ data: result.value });
+async create(req: Request, res: Response): Promise<void> {
+  if (!isAuthenticated(req)) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
   }
+
+  // 1. Schema layer parses and types the raw request body
+  const parsed = createSubmissionSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: z.treeifyError(parsed.error) });
+    return;
+  }
+
+  // 2. Delegate — controller has zero business logic
+  const result = await this.submissionService.create(parsed.data, req.user.id);
+
+  // 3. Unwrap — both branches are explicitly handled
+  if (result.isError()) {
+    const error = result.getError();
+    if (error instanceof UnsupportedLanguageError) {
+      res.status(422).json({ error: error.message });
+      return;
+    }
+    res.status(500).json({ error: 'An unexpected error occurred' });
+    return;
+  }
+
+  res.status(202).json({ data: result.unwrap() });
 }
 ```
 
 **Data flow summary:**
 
-```
-POST /submissions
-  │
-  ▼
-submission.routes.ts       → mounts SubmissionController.create
-  │
-  ▼
-submission.controller.ts   → submission.schema.ts        [Zod.safeParse]
-  │                           createSubmissionSchema
-  ▼
-submission.service.ts      → strategyRegistry.get(language)  [selects strategy]
-  │                         → submission.repository.ts       [persists record]
-  │                         → strategy.enqueue(submission)   [enqueues job]
-  │                           return ok(submission)          [Result<T, E>]
-  ▼
-submission.controller.ts   → isErr(result)?                  [unwraps Result]
-  │                           res.status(422) : res.status(202)
-  ▼
-HTTP Response
+```mermaid
+flowchart TB
+  req["POST /api/submissions"] --> routes["submission.routes.ts"]
+  routes --> auth_mw["authenticate and requireRole"]
+  auth_mw --> controller_create["SubmissionController.create"]
+  controller_create --> schema_parse["createSubmissionSchema.safeParse"]
+  schema_parse --> service_create["submissionService.create"]
+  service_create --> select_strategy["strategyRegistry.get"]
+  select_strategy --> repo_create["submissionRepo.create"]
+  repo_create --> enqueue_job["strategy.enqueue"]
+  enqueue_job --> set_job_id["submissionRepo.setQueueJobId"]
+  set_job_id --> emit_queued["submissionEvents.emit queued"]
+  emit_queued --> result_ok["Result.ok"]
+  result_ok --> response["HTTP 202 Accepted"]
 ```
 
 ---
 
 ## 6. Frontend Architecture
 
-```
-src/
-├── features/                    # One folder per product feature
-│   └── submissions/
-│       ├── components/          # UI components scoped to this feature
-│       ├── hooks/               # React hooks (useSubmission, etc.)
-│       └── index.ts             # Public API of the feature
-│
-├── api/                         # All fetch / WebSocket calls
-│   ├── submissions.api.ts
-│   └── http.ts                  # Shared axios/fetch instance
-│
-├── components/                  # Shared UI primitives (Button, Input, etc.)
-├── lib/                         # Frontend utilities
-└── main.tsx
+```mermaid
+flowchart TB
+  fe_src_root["frontend src"]
+
+  fe_src_root --> features["features"]
+  fe_src_root --> api_group["api"]
+  fe_src_root --> components_group["components"]
+  fe_src_root --> hooks_group["hooks"]
+  fe_src_root --> lib_group_fe["lib"]
+  fe_src_root --> router_group["router"]
+  fe_src_root --> main_file["main.tsx"]
+
+  features --> feature_auth["auth"]
+  features --> feature_dashboard["dashboard"]
+  features --> feature_problems["problems"]
+  features --> feature_submissions["submissions"]
+
+  api_group --> api_index["index.ts"]
+  api_group --> api_auth["auth.api.ts"]
+  api_group --> api_problems["problems.api.ts"]
+  api_group --> api_submissions["submissions.api.ts"]
+  api_group --> api_test_cases["test-cases.api.ts"]
+
+  components_group --> ui_group["ui"]
+  components_group --> layout_group["layout"]
+
+  lib_group_fe --> axios_file["axios.ts"]
+  lib_group_fe --> token_store_file["tokenStore.ts"]
+  lib_group_fe --> utils_file["utils.ts"]
+
+  router_group --> router_index["index.tsx"]
+  router_group --> route_error["RouteErrorPage.tsx"]
+  router_group --> route_fallback["RouteHydrateFallback.tsx"]
+  router_group --> router_layouts["layouts"]
+  router_group --> router_loaders["loaders"]
 ```
 
 **Rules:**
 
-- `fetch` / `axios` calls live **only** inside `src/api/` — never in
-  components or hooks.
-- Feature folders export a public interface via `index.ts` — cross-feature
+- All `fetch` / `axios` calls live **only** inside `src/api/`. Components and
+  hooks never call the network directly.
+- Feature folders export a public interface via `index.ts`. Cross-feature
   imports must go through this boundary.
-- API response types are derived from the same Zod schemas as the backend
-  (via a future `libs/shared-types` package).
+- The access token lives entirely in memory (`tokenStore.ts`) — never in
+  `localStorage`. `initAuth()` silently attempts a token refresh on first load.
+- The Axios instance (`lib/axios.ts`) automatically attaches the `Authorization`
+  header and handles 401 responses by attempting a single refresh, then
+  dispatching an `auth:logout` custom event on failure.
+- Role-based route guards are implemented as React Router loaders via
+  `createRoleLoader(allowedRoles)`. This runs server-side before the component
+  mounts, redirecting unauthenticated or unauthorised users.
+- Real-time submission status is received via `socket.io-client`. The
+  `SubmissionDetailPage` subscribes to the relevant room on mount and
+  unsubscribes on unmount.
 
 ---
 
 ## 7. Data Flow — Code Submission
 
-```
-User submits code
-      │
-      ▼
- [Frontend]
- api/submissions.api.ts
- POST /api/submissions
-      │
-      ▼
- [Backend — Sync path]
- submission.routes.ts
-      → submission.controller.ts
-           → submission.schema.ts   (Zod parse — typed DTO)
-           → submission.service.ts
-                → strategyRegistry.get('python')
-                → submission.repository.ts  → PostgreSQL
-                → evaluationQueue.add(job)  → Redis
-           → Result<Submission>  → HTTP 202 Accepted
-      │
-      ▼
- [Frontend]
- Renders "pending" state
- Subscribes via Socket.IO for live status updates
-      │
-      ▼
- [Backend — Async path]
- evaluation.worker.ts dequeues job
-      │
-      ├─ PythonEvaluationStrategy.execute(submission)
-      │      └─ Spins up Docker container (python:3.12-slim)
-      │         Runs user code with timeout + resource limits
-      │         Captures stdout / stderr / exit code
-      │
-      ├─ submission.repository.ts → updateStatus(id, 'completed') → PostgreSQL
-      │
-      └─ Socket.IO emits 'submission:completed' → Frontend
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant FE as Frontend
+  participant API as Backend API
+  participant SVC as Submission Service
+  participant Q as BullMQ Queue
+  participant W as Worker
+  participant DB as PostgreSQL
+  participant R as Redis
+  participant D as Docker Sandbox
+  participant WS as Socket.IO Bridge
+
+  U->>FE: Click Submit
+  FE->>API: POST /api/submissions
+  API->>SVC: Validate and create submission
+  SVC->>DB: Insert submission PENDING
+  SVC->>Q: Enqueue evaluation job
+  Q->>R: Store job
+  SVC->>DB: Save queueJobId
+  API-->>FE: HTTP 202 Accepted
+
+  FE->>WS: Subscribe submission room
+  R->>W: Dequeue job
+  W->>SVC: updateStatus RUNNING
+  SVC->>DB: Persist status
+  SVC->>WS: Emit status event
+
+  W->>SVC: getExecutionContext
+  SVC->>DB: Fetch submission and test cases
+  W->>D: Execute test cases
+  D-->>W: Outputs and execution metadata
+  W->>SVC: appendResult for each test case
+  SVC->>DB: Persist result rows
+  SVC->>WS: Emit result and progress events
+
+  W->>SVC: completeEvaluation
+  SVC->>DB: Persist final status
+  SVC->>WS: Emit final status
+  WS-->>FE: submission:update events
 ```
 
 ---
 
 ## 8. Error Handling Strategy
 
-| Error origin            | Type                       | Handled by                                     |
-| ----------------------- | -------------------------- | ---------------------------------------------- |
-| Invalid request body    | `ZodError`                 | Controller — 400 Bad Request                   |
-| Unsupported language    | `UnsupportedLanguageError` | Controller — 422 Unprocessable                 |
-| Resource not found      | `NotFoundError`            | Controller — 404 Not Found                     |
-| Unauthenticated request | `UnauthorizedError`        | Controller — 401 Unauthorized                  |
-| Unexpected server error | `Error`                    | Global Express error handler — 500             |
-| Sandbox timeout         | `ExecutionTimeoutError`    | Worker — marks submission as `timed_out`       |
-| Sandbox OOM             | `ExecutionMemoryError`     | Worker — marks submission as `memory_exceeded` |
+### Domain errors (travel as `Result<T, E>` values)
 
-**Global error handler (registered last in `app.ts`):**
+| Error origin             | Type                       | HTTP status | Handled by                    |
+| ------------------------ | -------------------------- | ----------- | ----------------------------- |
+| Invalid request body     | `ZodError`                 | 400         | Controller — `z.treeifyError` |
+| Wrong credentials        | `InvalidCredentialsError`  | 401         | Controller                    |
+| Unauthenticated request  | `UnauthorizedError`        | 401         | Controller / middleware       |
+| Access denied            | `ForbiddenError`           | 403         | Controller / `requireRole`    |
+| Resource not found       | `NotFoundError`            | 404         | Controller                    |
+| Email already registered | `ConflictError`            | 409         | Controller                    |
+| Unsupported language     | `UnsupportedLanguageError` | 422         | Controller                    |
+
+### Infrastructure errors (thrown and caught globally)
+
+| Error origin            | Type                    | Handled by                                        |
+| ----------------------- | ----------------------- | ------------------------------------------------- |
+| Unexpected server error | `Error`                 | `middleware/error.ts` — 500                       |
+| Sandbox CPU timeout     | kill SIGKILL via worker | Worker — marks submission `TIME_LIMIT_EXCEEDED`   |
+| Sandbox OOM             | Docker OOMKilled flag   | Worker — marks submission `MEMORY_LIMIT_EXCEEDED` |
+| Sandbox non-zero exit   | exitCode check          | Worker — marks submission `RUNTIME_ERROR`         |
+| Python syntax error     | stderr check            | Worker — marks submission `COMPILATION_ERROR`     |
+
+**Global error handler (`src/middleware/error.ts`):**
 
 ```typescript
-// src/app.ts — catches anything thrown outside of the Result pattern
-app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-  logger.error(err);
-  res.status(500).json({ error: 'An unexpected error occurred.' });
-});
+export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
+  const appError = normalizeError(error); // maps known errors to AppError
+  const isServerError = appError.statusCode >= 500;
+
+  res.status(appError.statusCode).json({
+    error:
+      isServerError && config.nodeEnv === 'production'
+        ? 'An unexpected error occurred. Please try again later.'
+        : appError.message,
+    code: appError.code,
+    ...(config.nodeEnv === 'development' ? { stack: appError.stack } : {}),
+  });
+};
 ```
 
-> **Principle:** Domain errors that are _expected_ (not found, invalid input,
-> unsupported language) travel as `Result<T, E>` values — they are
-> **data**, not exceptions. Only truly _unexpected_ failures (infrastructure
-> crashes, programmer mistakes) are thrown and caught by the global handler.
+> **Principle:** Expected domain errors travel as `Result<T, E>` values —
+> they are **data**, not exceptions. Only truly unexpected infrastructure
+> failures are thrown and caught by the global handler. The `stack` field is
+> only included in `development` mode.
 
 ---
 
@@ -739,15 +914,17 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 
 | Concern            | Technology              | Rationale                                                              |
 | ------------------ | ----------------------- | ---------------------------------------------------------------------- |
-| Frontend framework | React 19 + Vite 8       | Component model + fast HMR                                             |
-| Styling            | TailwindCSS             | Utility-first, no CSS drift                                            |
-| Backend framework  | Express 5               | Minimal, well-understood                                               |
-| Language           | TypeScript 5.9 (strict) | Type safety across all layers                                          |
-| ORM                | Prisma                  | Type-safe DB access, declarative migrations                            |
+| Frontend framework | React 19 + Vite 8       | Component model + fast HMR + rolldown bundler                          |
+| Styling            | TailwindCSS 4           | Utility-first, no CSS drift                                            |
+| UI components      | shadcn/ui (radix-vega)  | Accessible primitives, fully owned in `components/ui/`                 |
+| Backend framework  | Express 5               | Minimal, well-understood, async-friendly                               |
+| Language           | TypeScript 5.9 (strict) | Type safety across all layers; `erasableSyntaxOnly` mode               |
+| ORM                | Prisma 7 + PrismaPg     | Type-safe DB access, declarative migrations, PostgreSQL adapter        |
 | Validation         | Zod 4                   | Schema-first, inferred DTOs — co-located in each module's `.schema.ts` |
-| Primary database   | PostgreSQL              | ACID compliance, relational model                                      |
-| Job queue / cache  | Redis + BullMQ          | Reliable async job processing                                          |
-| Real-time          | Socket.IO               | Bidirectional events for submission status                             |
-| Sandbox            | Docker                  | OS-level isolation with resource limits                                |
-| Package manager    | pnpm + workspaces       | Fast installs, strict dependency isolation                             |
+| Primary database   | PostgreSQL 18           | ACID compliance, relational model                                      |
+| Job queue          | Redis + BullMQ 5        | Reliable async job processing with concurrency control                 |
+| Real-time          | Socket.IO 4             | Bidirectional events for per-submission status streaming               |
+| Sandbox            | Docker + Dockerode      | OS-level isolation with resource limits                                |
+| Authentication     | JWT (jsonwebtoken)      | Short-lived access token + long-lived refresh token (httpOnly cookie)  |
+| Package manager    | pnpm 10 + workspaces    | Fast installs, strict dependency isolation                             |
 | Testing            | Jest + Playwright       | Unit/integration + E2E coverage                                        |
