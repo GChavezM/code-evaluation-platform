@@ -5,9 +5,11 @@ import { Result } from '../../lib/result.js';
 import type { IEvaluationStrategyRegistry, TestCaseResult } from './strategies/index.js';
 import type { ISubmissionRepository, SubmissionWithResults } from './submission.repository.js';
 import type { CreateSubmissionDto, ListSubmissionsQueryDto } from './submission.schema.js';
+import { submissionEvents } from './submission.events.js';
 
 export interface SubmissionExecutionContext {
   submissionId: string;
+  userId: string;
   sourceCode: string;
   language: ProgramingLanguage;
   timeLimitMs: number;
@@ -49,9 +51,17 @@ export class SubmissionService {
     });
 
     const jobId = await strategy.enqueue(submission);
-    await this.submissionRepo.setQueueJobId(submission.id, jobId);
+    const queuedSubmission = await this.submissionRepo.setQueueJobId(submission.id, jobId);
 
-    return Result.ok(submission);
+    submissionEvents.emitLifecycle({
+      type: 'queued',
+      submissionId: queuedSubmission.id,
+      userId: queuedSubmission.userId,
+      language: queuedSubmission.language,
+      queueJobId: jobId,
+    });
+
+    return Result.ok(queuedSubmission);
   }
 
   async getAll(
@@ -107,6 +117,14 @@ export class SubmissionService {
     }
 
     const updated = await this.submissionRepo.updateStatus(id, status);
+
+    submissionEvents.emitLifecycle({
+      type: 'status',
+      submissionId: updated.id,
+      userId: updated.userId,
+      status: updated.status,
+    });
+
     return Result.ok(updated);
   }
 
@@ -121,6 +139,7 @@ export class SubmissionService {
 
     return Result.ok({
       submissionId: submission.id,
+      userId: submission.userId,
       sourceCode: submission.sourceCode,
       language: submission.language,
       timeLimitMs: submission.problem.timeLimitMs,
@@ -144,18 +163,52 @@ export class SubmissionService {
     }
 
     for (const result of results) {
-      await this.submissionRepo.addResult({
-        submissionId,
-        testCaseId: result.testCaseId,
-        status: result.status,
-        actualOutput: result.actualOutput,
-        executionTimeMs: result.executionTimeMs,
-        memoryUsedMb: result.memoryUsageMb,
-      });
+      await this.appendResult(submissionId, exists.userId, result);
     }
 
+    await this.completeEvaluation(submissionId, results);
+
+    return Result.ok(undefined);
+  }
+
+  async appendResult(submissionId: string, userId: string, result: TestCaseResult): Promise<void> {
+    const storedResult = await this.submissionRepo.addResult({
+      submissionId,
+      testCaseId: result.testCaseId,
+      status: result.status,
+      actualOutput: result.actualOutput,
+      executionTimeMs: result.executionTimeMs,
+      memoryUsedMb: result.memoryUsageMb,
+    });
+
+    submissionEvents.emitLifecycle({
+      type: 'result',
+      submissionId,
+      userId,
+      result: storedResult,
+    });
+  }
+
+  emitProgress(submissionId: string, userId: string, completed: number, total: number): void {
+    submissionEvents.emitLifecycle({
+      type: 'progress',
+      submissionId,
+      userId,
+      completed,
+      total,
+    });
+  }
+
+  async completeEvaluation(
+    submissionId: string,
+    results: TestCaseResult[]
+  ): Promise<Result<void, NotFoundError>> {
     const finalStatus = this.determineFinalStatus(results);
-    await this.submissionRepo.updateStatus(submissionId, finalStatus);
+    const statusResult = await this.updateStatus(submissionId, finalStatus);
+
+    if (statusResult.isError()) {
+      return Result.error(statusResult.getError());
+    }
 
     return Result.ok(undefined);
   }

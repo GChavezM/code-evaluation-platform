@@ -18,5 +18,6 @@ const submissionController = new SubmissionController(submissionService);
 export const submissionRouter: Router = createSubmissionRouter(submissionController);
 
 export { submissionService };
+export { submissionEvents } from './submission.events.js';
 export type { CreateSubmissionDto, ListSubmissionsQueryDto } from './submission.schema.js';
 export type { SubmissionWithResults } from './submission.repository.js';
