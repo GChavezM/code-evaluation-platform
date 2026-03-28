@@ -39,44 +39,63 @@ Pendiente por completar
 
 ### Frontend
 
-| Tecnología   | Rol                                                                                      |
-| ------------ | ---------------------------------------------------------------------------------------- |
-| React        | Biblioteca para construcción de interfaces de usuario mediante componentes declarativos. |
-| Vite         | Bundler y servidor de desarrollo de alta velocidad.                                      |
-| TypeScript   | Tipado estático para mayor robustez y mantenibilidad del código.                         |
-| Tailwind CSS | Framework de estilos utilitarios para interfaces responsivas.                            |
+| Tecnología       | Version | Rol                                                                        |
+| ---------------- | :-----: | -------------------------------------------------------------------------- |
+| React            |   19    | Biblioteca para construcción de interfaces de usuario con componentes.     |
+| Vite             |    8    | Bundler y servidor de desarrollo de alta velocidad.                        |
+| TypeScript       |   5.9   | Tipado estático para mayor robustez y mantenibilidad del código.           |
+| Tailwind CSS     |    4    | Framework de estilos utilitarios para interfaces responsivas.              |
+| shadcn/ui        | latest  | Componentes UI accesibles basados en Radix, copiados al proyecto.          |
+| React Router     |    7    | Enrutamiento del lado del cliente con loaders y layouts anidados.          |
+| React Hook Form  |    7    | Manejo de formularios con validacion eficiente.                            |
+| Zod              |    4    | Validacion de esquemas compartida entre frontend y backend.                |
+| Monaco Editor    |    4    | Editor de codigo embebido (misma base que VS Code).                        |
+| Axios            |   1.x   | Cliente HTTP con interceptores para manejo automatico de tokens JWT.       |
+| Socket.IO Client |    4    | Recepcion de actualizaciones en tiempo real de evaluaciones via WebSocket. |
 
 ### Backend
 
-| Tecnología | Rol                                                                                 |
-| ---------- | ----------------------------------------------------------------------------------- |
-| Node.js    | Entorno de ejecución del lado del servidor, modelo asíncrono orientado a eventos.   |
-| Express    | Framework web minimalista para definición de rutas, middlewares y controladores.    |
-| TypeScript | Tipado estático aplicado en toda la capa de negocio para mayor robustez.            |
-| Prisma ORM | Capa de abstracción para el acceso a la base de datos con migraciones declarativas. |
-| BullMQ     | Sistema de colas de trabajo sobre Redis para desacoplar envíos de su ejecución      |
-| Socket.IO  | Implementación de comunicación bidireccional via WebSocket.                         |
+| Tecnología   | Version | Rol                                                                                 |
+| ------------ | :-----: | ----------------------------------------------------------------------------------- |
+| Node.js      |  >= 20  | Entorno de ejecución del lado del servidor, modelo asíncrono orientado a eventos.   |
+| Express      |    5    | Framework web minimalista para definición de rutas, middlewares y controladores.    |
+| TypeScript   |   5.9   | Tipado estático aplicado en toda la capa de negocio para mayor robustez.            |
+| Prisma ORM   |    7    | Capa de abstracción para el acceso a la base de datos con migraciones declarativas. |
+| Zod          |    4    | Validacion de esquemas y tipado de DTOs en cada módulo.                             |
+| BullMQ       |    5    | Sistema de colas de trabajo sobre Redis para desacoplar envíos de su ejecución.     |
+| Socket.IO    |    4    | Comunicación bidireccional via WebSocket para actualizaciones en tiempo real.       |
+| Dockerode    |   4.x   | Cliente Node.js para la API de Docker, orquesta los contenedores sandbox.           |
+| jsonwebtoken |   9.x   | Firma y verificacion de access tokens y refresh tokens JWT.                         |
+| bcryptjs     |   3.x   | Hash seguro de contraseñas.                                                         |
 
 ### Base de Datos
 
-| Tecnología | Rol                                                               |
-| ---------- | ----------------------------------------------------------------- |
-| PostgreSQL | Sistema de gestión de bases de datos objeto relacional principal. |
-| Redis      | Broker de mensajería para BullMQ y capa de caché                  |
+| Tecnología | Version | Rol                                                               |
+| ---------- | :-----: | ----------------------------------------------------------------- |
+| PostgreSQL |   18    | Sistema de gestión de bases de datos objeto relacional principal. |
+| Redis      |    8    | Broker de mensajería para BullMQ y capa de caché.                 |
 
 ### Infraestructura
 
-| Tecnología     | Rol                                                              |
-| -------------- | ---------------------------------------------------------------- |
-| Docker         | Plataforma de contenedores para el sandbox de ejecución aislada. |
-| Docker Compose | Orquestación local de todos los servicios del sistema.           |
+| Tecnología     | Rol                                                                     |
+| -------------- | ----------------------------------------------------------------------- |
+| Docker         | Plataforma de contenedores para el sandbox de ejecución aislada.        |
+| Docker Compose | Orquestación local de servicios de infraestructura (PostgreSQL, Redis). |
 
 ### Testing
 
 | Tecnología | Rol                                      |
 | ---------- | ---------------------------------------- |
-| Jest       | Pruebas unitarias                        |
+| Jest       | Pruebas unitarias e integración          |
 | Playwright | Pruebas end-to-end de flujos de usuarios |
+
+### Herramientas de desarrollo
+
+| Herramienta | Version | Rol                                                         |
+| ----------- | :-----: | ----------------------------------------------------------- |
+| pnpm        |   10    | Gestor de paquetes con soporte de workspaces para monorepo. |
+| ESLint      |    9    | Linting con configuracion flat para todo el monorepo.       |
+| Prettier    |    3    | Formateo consistente de codigo.                             |
 
 ---
 
