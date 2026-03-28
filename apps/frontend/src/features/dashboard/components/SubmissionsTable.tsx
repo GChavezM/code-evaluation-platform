@@ -1,6 +1,7 @@
 import { FileX2 } from 'lucide-react';
 import type { Problem, Submission } from '../hooks/useDashboardStats';
 import { StatusBadge } from './StatusBadge';
+import { Link } from 'react-router';
 
 interface SubmissionsTableProps {
   submissions: Submission[];
@@ -81,7 +82,11 @@ export function SubmissionsTable({
                   </td>
                 )}
                 <td className="py-3 pr-4 font-medium text-foreground">
-                  {problem?.title ?? <span className="text-muted-foreground italic">Unknown</span>}
+                  <Link to={`/submissions/${sub.id}`} className="hover:underline">
+                    {problem?.title ?? (
+                      <span className="text-muted-foreground italic">Unknown</span>
+                    )}
+                  </Link>
                 </td>
                 <td className="py-3 pr-4">
                   <StatusBadge status={sub.status} />
