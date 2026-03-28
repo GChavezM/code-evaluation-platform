@@ -117,26 +117,12 @@ pnpm install
 
 ### 3. Configurar variables de entorno
 
-Crear el archivo de entorno del backend a partir del ejemplo:
-
 ```bash
 cp apps/backend/.env.example apps/backend/.env
+cp apps/frontend/.env.example apps/frontend/.env
 ```
 
-Configurar valores minimos en `apps/backend/.env`:
-
-- `DATABASE_URL`
-- `JWT_ACCESS_SECRET`
-- `JWT_REFRESH_SECRET`
-- `FRONTEND_URL` (por defecto: `http://localhost:5173`)
-
-Comando sugerido para generar secretos JWT:
-
-```bash
-node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
-```
-
-Nota: si usas la base de datos del `compose.yaml`, verifica que el nombre de la base en `DATABASE_URL` coincida con el configurado en Docker Compose.
+Editar los valores en cada archivo. Ver la sección [Variables de Entorno](#variables-de-entorno) para la referencia completa.
 
 ### 4. Levantar infraestructura (PostgreSQL + Redis)
 
@@ -218,7 +204,33 @@ docker compose down -v
 
 ## Variables de Entorno
 
-Pendiente por completar
+### Backend (`apps/backend/.env`)
+
+| Variable                 | Requerida | Descripcion                            | Valor por defecto / ejemplo                                              |
+| ------------------------ | :-------: | -------------------------------------- | ------------------------------------------------------------------------ |
+| `NODE_ENV`               |    No     | Entorno de ejecucion                   | `development`                                                            |
+| `PORT`                   |    No     | Puerto del servidor Express            | `3000`                                                                   |
+| `DATABASE_URL`           |    Si     | URL de conexion a PostgreSQL           | `postgresql://postgres:postgres@localhost:5432/code_evaluation_platform` |
+| `REDIS_URL`              |    Si     | URL de conexion a Redis                | `redis://localhost:6379`                                                 |
+| `JWT_ACCESS_SECRET`      |    Si     | Secreto para firmar los access tokens  | Cadena aleatoria larga — ver comando abajo                               |
+| `JWT_REFRESH_SECRET`     |    Si     | Secreto para firmar los refresh tokens | Cadena aleatoria larga (diferente al anterior)                           |
+| `JWT_ACCESS_EXPIRES_IN`  |    No     | Duracion del access token en segundos  | `900` (15 minutos)                                                       |
+| `JWT_REFRESH_EXPIRES_IN` |    No     | Duracion del refresh token en segundos | `604800` (7 dias)                                                        |
+| `FRONTEND_URL`           |    Si     | Origen del frontend permitido por CORS | `http://localhost:5173`                                                  |
+
+### Frontend (`apps/frontend/.env`)
+
+| Variable       | Requerida | Descripcion                                   | Valor por defecto / ejemplo |
+| -------------- | :-------: | --------------------------------------------- | --------------------------- |
+| `VITE_API_URL` |    Si     | URL base del backend consumida por el cliente | `http://localhost:3000`     |
+
+### Generar secretos seguros
+
+```bash
+node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+```
+
+Ejecutar dos veces: una para `JWT_ACCESS_SECRET` y otra para `JWT_REFRESH_SECRET`. Usar siempre valores distintos.
 
 ---
 
@@ -227,12 +239,3 @@ Pendiente por completar
 | Nombre         | Rol                  | Email                       |
 | -------------- | -------------------- | --------------------------- |
 | Gabriel Chávez | Full Stack Developer | <gchavezmardonez@gmail.com> |
-
----
-
-## Lista de Tareas
-
-Seguimiento del progreso de implementación del proyecto.
-
-- [ ] Completar el `README.md` del repositorio
-- [ ] ...
