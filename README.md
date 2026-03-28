@@ -99,7 +99,8 @@ Pendiente por completar
 - [Docker](https://docs.docker.com/get-started/get-docker/)
 - [Docker Compose](https://docs.docker.com/compose/)
 - [Node.js](https://nodejs.org/en/download) >= 20.x LTS
-- [pnpm](https://pnpm.io/installation) >= 9.x
+- [pnpm](https://pnpm.io/installation) >= 10.x
+- Docker Engine en ejecucion (requerido para contenedores de evaluacion)
 
 ### 1. Clonar el repositorio
 
@@ -108,19 +109,110 @@ git clone https://github.com/GChavezM/code-evaluation-platform.git
 cd code-evaluation-platform
 ```
 
-### 2. Configurar variables de entorno
+### 2. Instalar dependencias
 
-### 3. Instalar dependencias
+```bash
+pnpm install
+```
 
-### 4. Levantar la infraestructura
+### 3. Configurar variables de entorno
+
+Crear el archivo de entorno del backend a partir del ejemplo:
+
+```bash
+cp apps/backend/.env.example apps/backend/.env
+```
+
+Configurar valores minimos en `apps/backend/.env`:
+
+- `DATABASE_URL`
+- `JWT_ACCESS_SECRET`
+- `JWT_REFRESH_SECRET`
+- `FRONTEND_URL` (por defecto: `http://localhost:5173`)
+
+Comando sugerido para generar secretos JWT:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+```
+
+Nota: si usas la base de datos del `compose.yaml`, verifica que el nombre de la base en `DATABASE_URL` coincida con el configurado en Docker Compose.
+
+### 4. Levantar infraestructura (PostgreSQL + Redis)
+
+```bash
+docker compose up -d postgres redis
+```
+
+Opcional (validar contenedores):
+
+```bash
+docker compose ps
+```
 
 ### 5. Ejecutar migraciones de base de datos
 
+```bash
+pnpm db:generate
+pnpm db:migrate
+pnpm db:seed
+```
+
 ### 6. Iniciar el entorno de desarrollo
+
+Iniciar frontend y backend en paralelo:
+
+```bash
+pnpm dev
+```
+
+Servicios esperados:
+
+- Frontend: `http://localhost:5173`
+- Backend API: `http://localhost:3000`
+
+Opcional (ejecucion por separado):
+
+```bash
+pnpm dev:frontend
+pnpm dev:backend
+```
 
 ### 7. Levantar el sistema completo con Docker Compose
 
-### Scripts disponibles
+Actualmente `compose.yaml` levanta servicios de infraestructura (PostgreSQL y Redis).
+El backend, frontend y worker se ejecutan en modo desarrollo con `pnpm dev`.
+
+### 8. Scripts disponibles
+
+| Script              | Descripcion                                             |
+| ------------------- | ------------------------------------------------------- |
+| `pnpm dev`          | Inicia frontend y backend en modo desarrollo            |
+| `pnpm dev:frontend` | Inicia solo frontend (Vite)                             |
+| `pnpm dev:backend`  | Inicia solo backend (Express + worker integrado)        |
+| `pnpm build`        | Compila todos los paquetes                              |
+| `pnpm typecheck`    | Ejecuta validacion de tipos en todo el monorepo         |
+| `pnpm lint`         | Ejecuta ESLint                                          |
+| `pnpm format`       | Formatea el codigo con Prettier                         |
+| `pnpm db:generate`  | Regenera Prisma Client                                  |
+| `pnpm db:migrate`   | Aplica migraciones de Prisma en desarrollo              |
+| `pnpm db:seed`      | Ejecuta el seed de base de datos                        |
+| `pnpm db:reset`     | Reinicia la base de datos y reaplica migraciones + seed |
+| `pnpm db:studio`    | Abre Prisma Studio                                      |
+
+### 9. Apagado y limpieza
+
+Detener infraestructura:
+
+```bash
+docker compose down
+```
+
+Detener y eliminar volumenes (reinicio limpio de datos locales):
+
+```bash
+docker compose down -v
+```
 
 ---
 
