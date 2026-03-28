@@ -88,7 +88,52 @@ Pendiente por completar
 
 ## Endpoints
 
-Pendiente por completar
+Base URL: `http://localhost:3000`
+
+### Utilidad
+
+| Método | Ruta      | Auth | Descripcion              |
+| ------ | --------- | :--: | ------------------------ |
+| `GET`  | `/health` |  No  | Estado del servidor y DB |
+
+### Autenticacion (`/api/auth`)
+
+| Método | Ruta                      | Auth | Descripcion                                        |
+| ------ | ------------------------- | :--: | -------------------------------------------------- |
+| `POST` | `/api/auth/signup`        |  No  | Registrar nuevo usuario                            |
+| `POST` | `/api/auth/signin`        |  No  | Iniciar sesion, retorna access token               |
+| `POST` | `/api/auth/refresh-token` |  No  | Renovar access token usando refresh token (cookie) |
+| `POST` | `/api/auth/signout`       |  No  | Cerrar sesion, invalida el refresh token           |
+
+### Problemas (`/api/problems`)
+
+| Método   | Ruta                | Auth | Rol requerido | Descripcion                |
+| -------- | ------------------- | :--: | ------------- | -------------------------- |
+| `GET`    | `/api/problems`     |  Si  | Cualquiera    | Listar todos los problemas |
+| `GET`    | `/api/problems/:id` |  Si  | Cualquiera    | Obtener problema por ID    |
+| `POST`   | `/api/problems`     |  Si  | `EVALUATOR`   | Crear problema             |
+| `PATCH`  | `/api/problems/:id` |  Si  | `EVALUATOR`   | Actualizar problema        |
+| `DELETE` | `/api/problems/:id` |  Si  | `EVALUATOR`   | Eliminar problema          |
+
+### Casos de Prueba (`/api/problems/:problemId/test-cases`)
+
+> Los usuarios con rol `CODER` solo reciben casos de prueba marcados como muestra.
+
+| Método   | Ruta                                      | Auth | Rol requerido | Descripcion                   |
+| -------- | ----------------------------------------- | :--: | ------------- | ----------------------------- |
+| `GET`    | `/api/problems/:problemId/test-cases`     |  Si  | Cualquiera    | Listar casos de prueba        |
+| `GET`    | `/api/problems/:problemId/test-cases/:id` |  Si  | Cualquiera    | Obtener caso de prueba por ID |
+| `POST`   | `/api/problems/:problemId/test-cases`     |  Si  | `EVALUATOR`   | Crear caso de prueba          |
+| `PATCH`  | `/api/problems/:problemId/test-cases/:id` |  Si  | `EVALUATOR`   | Actualizar caso de prueba     |
+| `DELETE` | `/api/problems/:problemId/test-cases/:id` |  Si  | `EVALUATOR`   | Eliminar caso de prueba       |
+
+### Envios (`/api/submissions`)
+
+| Método | Ruta                   | Auth | Rol requerido | Descripcion                     |
+| ------ | ---------------------- | :--: | ------------- | ------------------------------- |
+| `POST` | `/api/submissions`     |  Si  | `CODER`       | Enviar solución para evaluación |
+| `GET`  | `/api/submissions`     |  Si  | Cualquiera    | Listar envios                   |
+| `GET`  | `/api/submissions/:id` |  Si  | Cualquiera    | Obtener envio por ID            |
 
 ---
 
